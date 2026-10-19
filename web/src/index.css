@@ -135,3 +135,16 @@
   .net-sheet-print tr { page-break-inside: avoid; }
   .net-sheet-print thead { display: table-header-group; }
 }
+/* Rich-text editor on the dark theme (components/RichTextEditor.tsx) */
+.quill-dark .ql-toolbar { background:#1f2937; border-color:#4b5563!important; border-radius:0.375rem 0.375rem 0 0; }
+.quill-dark .ql-container { background:#1f2937; border-color:#4b5563!important; border-radius:0 0 0.375rem 0.375rem; color:white; min-height:120px; }
+.quill-dark .ql-editor { color:white; min-height:120px; }
+.quill-dark .ql-toolbar button, .quill-dark .ql-toolbar .ql-picker-label { color:#d1d5db; }
+.quill-dark .ql-toolbar button:hover .ql-stroke, .quill-dark .ql-toolbar button.ql-active .ql-stroke { stroke:white; }
+.quill-dark .ql-toolbar .ql-stroke { stroke:#d1d5db; }
+.quill-dark .ql-toolbar .ql-fill { fill:#d1d5db; }
+.quill-dark .ql-editor.ql-blank::before { color:#6b7280; }
+.quill-dark .ql-editor p { margin: 0 0 0.75em; }
+.quill-dark .ql-editor h1, .quill-dark .ql-editor h2 { margin: 0 0 0.6em; }
+.quill-dark .ql-editor p:last-child, .quill-dark .ql-editor h1:last-child, .quill-dark .ql-editor h2:last-child { margin-bottom: 0; }
+.quill-dark .ql-editor li { margin: 0.25em 0; }

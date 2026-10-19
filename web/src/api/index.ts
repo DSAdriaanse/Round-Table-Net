@@ -21,3 +21,4 @@ export * from "./announcements";
 export * from "./settings";
 export * from "./public";
 export { auth } from "./auth";
+export * from "./geocode";

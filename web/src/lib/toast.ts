@@ -19,5 +19,6 @@ function put(title: string, options: Options = {}, variant?: "destructive") {
 export const toast = {
   success: (message: string, options?: Options) => put(message, options),
   error: (message: string, options?: Options) => put(message, options, "destructive"),
+  info: (message: string, options?: Options) => put(message, options),
   loading: (message: string, options?: Options) => put(message, options),
 };

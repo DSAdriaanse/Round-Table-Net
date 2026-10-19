@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { ChevronDown, Globe, LogOut, Menu, Radio, X, type LucideIcon } from "lucide-react";
+import { BookOpen, ChevronDown, Globe, History, LayoutDashboard, List, LogOut, Megaphone, Menu, Printer, Radio, Settings, X, type LucideIcon } from "lucide-react";
 import { NetProvider, useNet } from "@/components/NetContext";
 import NetSelectionGate from "@/components/NetSelectionGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,24 @@ import { useAuth } from "@/features/auth/AuthContext";
 interface NavItem { label: string; to: string; icon: LucideIcon; highlight?: boolean }
 const navGroups: { label: string | null; items: NavItem[] }[] = [
   { label: null, items: [{ label: "Net Control", to: "/net-control", icon: Radio, highlight: true }] },
-  { label: "Other Tools", items: [{ label: "Public Check-In", to: "/check-in", icon: Globe }] },
+  {
+    label: "Net Management",
+    items: [
+      { label: "Net Dashboard", to: "/dashboard", icon: LayoutDashboard },
+      { label: "Roster Manager", to: "/roster", icon: List },
+      { label: "Manage Nets", to: "/nets", icon: Settings },
+    ],
+  },
+  { label: "Reporting", items: [{ label: "Session History", to: "/history", icon: History }] },
+  {
+    label: "Other Tools",
+    items: [
+      { label: "Public Check-In", to: "/check-in", icon: Globe },
+      { label: "Announcements", to: "/announcements", icon: Megaphone },
+      { label: "Print Net Sheet", to: "/print-sheet", icon: Printer },
+    ],
+  },
+  { label: "Help", items: [{ label: "NCO Guide", to: "/guide", icon: BookOpen }] },
 ];
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {

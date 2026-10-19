@@ -11,6 +11,8 @@ interface NetContextValue {
   selectNet: (id: string) => void;
   netConfirmed: boolean;
   confirmNet: () => void;
+  /** Reload the list of nets (after adding, editing or deleting one). */
+  refreshNets: () => Promise<void>;
 }
 
 const NetContext = createContext<NetContextValue | null>(null);
@@ -24,13 +26,14 @@ export function NetProvider({ children }: { children: ReactNode }) {
   const [selectedNet, setSelectedNet] = useState(() => read(localStorage, "selectedNetId"));
   const [netConfirmed, setNetConfirmed] = useState(() => read(sessionStorage, "netConfirmed") === "true");
 
-  useEffect(() => {
-    listNets().then((n) => {
-      setNets(n);
-      // Forget a remembered net that no longer exists; default to the first one.
-      setSelectedNet((current) => (n.some((x) => x.id === current) ? current : n[0]?.id || ""));
-    });
-  }, []);
+  const refreshNets = async () => {
+    const n = await listNets();
+    setNets(n);
+    // Forget a remembered net that no longer exists; default to the first one.
+    setSelectedNet((current) => (n.some((x) => x.id === current) ? current : n[0]?.id || ""));
+  };
+
+  useEffect(() => { refreshNets().catch(() => {}); }, []);
 
   const selectNet = (id: string) => {
     setSelectedNet(id);
@@ -42,7 +45,7 @@ export function NetProvider({ children }: { children: ReactNode }) {
     write(sessionStorage, "netConfirmed", "true");
   };
 
-  return <NetContext.Provider value={{ nets, selectedNet, selectNet, netConfirmed, confirmNet }}>{children}</NetContext.Provider>;
+  return <NetContext.Provider value={{ nets, selectedNet, selectNet, netConfirmed, confirmNet, refreshNets }}>{children}</NetContext.Provider>;
 }
 
 export function useNet(): NetContextValue {
