@@ -18,6 +18,7 @@ import SessionHistory from '@/features/history/SessionHistory';
 import SessionReport from '@/features/history/SessionReport';
 import AnnouncementsManager from '@/features/announcements/AnnouncementsManager';
 import Instructions from '@/features/guide/Instructions';
+import Settings from '@/features/settings/Settings';
 
 // THE MAP OF THE APP: which web address shows which screen, and who may see it.
 //   /login, /check-in   open to everyone (the PIN screen, and the public check-in page)
@@ -59,6 +60,7 @@ const AuthenticatedApp = () => (
         <Route path="/announcements" element={<AnnouncementsManager />} />
         <Route path="/print-sheet" element={<PrintNetSheet />} />
         <Route path="/guide" element={<Instructions />} />
+        <Route path="/settings" element={<Settings />} />
         {Object.keys(LEGACY).map((path) => <Route key={path} path={path} element={<LegacyRedirect />} />)}
       </Route>
     </Route>

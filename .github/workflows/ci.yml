@@ -1,6 +1,5 @@
-# Runs on every pull request and push to main/dev. Jobs are added here as the
-# pieces arrive: the backend end-to-end tests and the front-end checks now; the
-# deploy-script checks in a later pull request.
+# Runs on every pull request and push to main/dev: backend end-to-end tests against a real
+# PocketBase, front-end lint/typecheck/build, and the deploy-script tests.
 name: CI
 on:
   pull_request:
@@ -32,6 +31,13 @@ jobs:
           ./pocketbase serve --dir ./ci-data --migrationsDir backend/pb_migrations --hooksDir backend/pb_hooks --http 127.0.0.1:8090 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8090/api/health >/dev/null && break; sleep 1; done
       - run: node --test backend/test/api.test.mjs
+
+  deploy-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: for f in deploy/*.sh deploy/test/*.sh; do bash -n "$f"; done
+      - run: bash deploy/test/install.test.sh
 
   web:
     runs-on: ubuntu-latest

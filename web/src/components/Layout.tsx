@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { BookOpen, ChevronDown, Globe, History, LayoutDashboard, List, LogOut, Megaphone, Menu, Printer, Radio, Settings, X, type LucideIcon } from "lucide-react";
+import { BookOpen, Cog, ChevronDown, Globe, History, LayoutDashboard, List, LogOut, Megaphone, Menu, Printer, Radio, Settings, X, type LucideIcon } from "lucide-react";
 import { NetProvider, useNet } from "@/components/NetContext";
 import NetSelectionGate from "@/components/NetSelectionGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -28,7 +28,7 @@ const navGroups: { label: string | null; items: NavItem[] }[] = [
       { label: "Print Net Sheet", to: "/print-sheet", icon: Printer },
     ],
   },
-  { label: "Help", items: [{ label: "NCO Guide", to: "/guide", icon: BookOpen }] },
+  { label: "Help", items: [{ label: "NCO Guide", to: "/guide", icon: BookOpen }, { label: "Settings", to: "/settings", icon: Cog }] },
 ];
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
