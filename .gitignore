@@ -1,0 +1,21 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# PocketBase runtime data (real roster and check-in data)
+backend/pb_data/
+backend/pocketbase
+backend/pocketbase.exe
+
+# Local data folders (real exports belong here, never in git). The committed
+# sample data lives in example-data/ instead.
+data/
+
+# Node and build output
+node_modules/
+dist/
+*.log
+.DS_Store
+restore-dates.sql
+test-results/
