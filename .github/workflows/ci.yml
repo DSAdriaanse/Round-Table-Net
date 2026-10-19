@@ -1,5 +1,5 @@
 # Runs on every pull request and push to main/dev: backend end-to-end tests against a real
-# PocketBase, front-end lint/typecheck/build, and the deploy-script tests.
+# PocketBase, front-end lint/typecheck/build, the deploy-script tests, and the Base44 importer.
 name: CI
 on:
   pull_request:
@@ -52,3 +52,26 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+
+  importer:
+    runs-on: ubuntu-latest
+    env:
+      PB_VERSION: "0.36.0"
+      PB_URL: http://127.0.0.1:8091
+      PB_SUPERUSER_EMAIL: ci@test.local
+      PB_SUPERUSER_PASSWORD: ci-test-pass-1234
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node --test scripts/import-base44.test.mjs
+      - run: node scripts/import-base44.mjs example-data --dry-run
+      - name: Import the example data into a fresh PocketBase and check it
+        run: |
+          curl -fsSL -o pb.zip "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip"
+          unzip -q pb.zip pocketbase
+          ./pocketbase superuser upsert "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir ./imp-data --migrationsDir backend/pb_migrations
+          NCO_PIN=ci-pin-123456 ./pocketbase serve --dir ./imp-data --migrationsDir backend/pb_migrations --hooksDir backend/pb_hooks --http 127.0.0.1:8091 &
+          for i in $(seq 1 30); do curl -fsS "$PB_URL/api/health" >/dev/null && break; sleep 1; done
+          node scripts/import-base44.mjs example-data
+          node scripts/verify-import.mjs 3 120 12 174 2
