@@ -1,6 +1,6 @@
 # Runs on every pull request and push to main/dev. Jobs are added here as the
-# pieces arrive: the backend end-to-end tests now; the front end and deploy-script
-# checks in later pull requests.
+# pieces arrive: the backend end-to-end tests and the front-end checks now; the
+# deploy-script checks in a later pull request.
 name: CI
 on:
   pull_request:
@@ -32,3 +32,17 @@ jobs:
           ./pocketbase serve --dir ./ci-data --migrationsDir backend/pb_migrations --hooksDir backend/pb_hooks --http 127.0.0.1:8090 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8090/api/health >/dev/null && break; sleep 1; done
       - run: node --test backend/test/api.test.mjs
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
