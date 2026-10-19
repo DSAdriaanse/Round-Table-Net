@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+    --font-heading: ui-sans-serif, system-ui, sans-serif;
+    --font-body: ui-sans-serif, system-ui, sans-serif;
+    --font-display: ui-sans-serif, system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+}
+
+/* Rich-text rendering for ReactQuill HTML content (preamble, closing, announcements) */
+.rich-text {
+  line-height: 1.6;
+}
+.rich-text > *:first-child { margin-top: 0; }
+.rich-text > *:last-child { margin-bottom: 0; }
+.rich-text p { margin: 0.5em 0; }
+.rich-text h1 { font-size: 1.5em; font-weight: 700; margin: 0.8em 0 0.4em; }
+.rich-text h2 { font-size: 1.25em; font-weight: 700; margin: 0.8em 0 0.4em; }
+.rich-text h3 { font-size: 1.1em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.rich-text ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.rich-text ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.rich-text li { margin: 0.25em 0; }
+.rich-text li > ul, .rich-text li > ol { margin: 0.25em 0; }
+.rich-text blockquote { border-left: 3px solid currentColor; padding-left: 1em; margin: 0.5em 0; opacity: 0.85; font-style: italic; }
+.rich-text a { text-decoration: underline; }
+.rich-text strong, .rich-text b { font-weight: 700; }
+.rich-text em, .rich-text i { font-style: italic; }
+.rich-text u { text-decoration: underline; }
+.rich-text s, .rich-text strike { text-decoration: line-through; }
+.rich-text pre { background: rgba(0,0,0,0.3); padding: 0.75em; border-radius: 0.375em; margin: 0.5em 0; overflow-x: auto; }
+.rich-text code { font-family: monospace; font-size: 0.9em; }
+
+/* Print styles for Net Sheet */
+@media print {
+  body * { visibility: hidden; }
+  #net-sheet-content, #net-sheet-content * { visibility: visible; }
+  #net-sheet-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0.5in;
+    background: white;
+    color: black;
+  }
+  .print:hidden { display: none !important; }
+  @page {
+    margin: 0.5in;
+  }
+  .net-sheet-print table { page-break-inside: auto; }
+  .net-sheet-print tr { page-break-inside: avoid; }
+  .net-sheet-print thead { display: table-header-group; }
+}
+/* Rich-text editor on the dark theme (components/RichTextEditor.tsx) */
+.quill-dark .ql-toolbar { background:#1f2937; border-color:#4b5563!important; border-radius:0.375rem 0.375rem 0 0; }
+.quill-dark .ql-container { background:#1f2937; border-color:#4b5563!important; border-radius:0 0 0.375rem 0.375rem; color:white; min-height:120px; }
+.quill-dark .ql-editor { color:white; min-height:120px; }
+.quill-dark .ql-toolbar button, .quill-dark .ql-toolbar .ql-picker-label { color:#d1d5db; }
+.quill-dark .ql-toolbar button:hover .ql-stroke, .quill-dark .ql-toolbar button.ql-active .ql-stroke { stroke:white; }
+.quill-dark .ql-toolbar .ql-stroke { stroke:#d1d5db; }
+.quill-dark .ql-toolbar .ql-fill { fill:#d1d5db; }
+.quill-dark .ql-editor.ql-blank::before { color:#6b7280; }
+.quill-dark .ql-editor p { margin: 0 0 0.75em; }
+.quill-dark .ql-editor h1, .quill-dark .ql-editor h2 { margin: 0 0 0.6em; }
+.quill-dark .ql-editor p:last-child, .quill-dark .ql-editor h1:last-child, .quill-dark .ql-editor h2:last-child { margin-bottom: 0; }
+.quill-dark .ql-editor li { margin: 0.25em 0; }
