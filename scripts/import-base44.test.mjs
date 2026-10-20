@@ -89,7 +89,7 @@ test("a JSON export plans like the CSV one, ignoring users and schema", () => {
   const t = loadJson(writeJson(jsonExport));
   assert.deepEqual(Object.keys(t).sort(), ["Announcement", "CheckIn", "Net", "NetSession", "Station"]);
   const p = plan(t);
-  assert.deepEqual([p.nets.length, p.stations.length, p.sessions.length, p.checkIns.length, p.announcements.length], [1, 1, 1, 2, 1]);
+  assert.deepEqual([p.nets.length, p.stations.length, p.sessions.length, p.checkIns.length, p.announcements.length], [1, 1, 1, 1, 1]);
   assert.equal(p.stations[0].data.active, true);
   assert.equal(p.stations[0].data.lat, 32.2);
   assert.equal(p.sessions[0].data.checkin_count, 1);
@@ -108,7 +108,7 @@ test("--recreate-missing-nets keeps the history of a net the old app deleted", (
   assert.equal(re.data.legacy_id, "gone");
   assert.equal(p.stations.length, 2);
   assert.equal(p.sessions.length, 3);
-  assert.equal(p.checkIns.length, 4);
+  assert.equal(p.checkIns.length, 3); // c4 names a roster station that is not in the export: skipped
   assert.ok(p.stations.every((s) => p.nets.some((n) => n.old === s.net)));
   assert.ok(p.notes.some((n) => /Recreated the net "Old Net"/.test(n)));
 });
@@ -120,11 +120,12 @@ test("a session whose JSON has no check-in count gets one from its check-ins (no
   assert.equal(p.sessions.find((s) => s.old === "x1").data.checkin_count, 1); // a stored count is kept
 });
 
-test("check-ins naming a missing roster station are counted, or skipped on request", () => {
+test("check-ins naming a missing roster station are skipped and counted, or kept on request", () => {
   const t = loadJson(writeJson(jsonExport));
-  const kept = plan(t);
+  const skipped = plan(t);
+  assert.ok(!skipped.checkIns.some((c) => c.old === "c4"));
+  assert.ok(skipped.notes.some((n) => /1 check-ins skipped: they name a roster station that is not in the export/.test(n)));
+  const kept = plan(t, { keepDanglingCheckins: true });
   assert.ok(kept.checkIns.some((c) => c.old === "c4" && c.station === ""));
   assert.ok(kept.notes.some((n) => /1 check-in\(s\) name a roster station that is not in the export/.test(n)));
-  const skipped = plan(t, { skipDanglingCheckins: true });
-  assert.ok(!skipped.checkIns.some((c) => c.old === "c4"));
 });

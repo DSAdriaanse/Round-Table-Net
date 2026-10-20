@@ -5,7 +5,7 @@
 //
 //   PB_URL=http://127.0.0.1:8090 PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... \
 //   node scripts/import-base44.mjs <folder-with-*_export.csv | export.json> [--dry-run] [--allow-nonempty]
-//        [--recreate-missing-nets] [--skip-dangling-checkins]
+//        [--recreate-missing-nets] [--keep-dangling-checkins]
 //
 // What it does
 //   * Base44 ids (24 hex characters) become PocketBase ids. The old id is kept in each record's
@@ -20,9 +20,8 @@
 //     you ask: --recreate-missing-nets makes a net for each missing net id (named from its sessions) so
 //     that history is kept. Its day and time are guesses; edit them or delete the net (which also
 //     deletes its history).
-//   * A check-in that names a roster station that is not in the export is imported without a station
-//     link, and counted in the notes. --skip-dangling-checkins leaves those out instead (they are
-//     usually test entries).
+//   * A check-in that names a roster station that is not in the export is skipped and counted (they are
+//     usually test entries). --keep-dangling-checkins imports them without a station link instead.
 //   * Rows flagged is_sample in the export are skipped.
 //   * The old data holds repeated check-ins for one callsign in one session. They are imported as they
 //     are (the server refuses new ones, but this script signs in as superuser).
@@ -141,7 +140,7 @@ export function plan(tables, opts = {}) {
     if (station && !stationIds.has(station)) {
       station = keptByKey.get(r.net_id + "|" + cs) || "";
       if (!station) {
-        if (opts.skipDanglingCheckins) { skip("check-in", "check-ins skipped: they name a roster station that is not in the export"); continue; }
+        if (!opts.keepDanglingCheckins) { skip("check-in", "check-ins skipped: they name a roster station that is not in the export"); continue; }
         dangling++;
       }
     }
@@ -156,7 +155,7 @@ export function plan(tables, opts = {}) {
   for (const s of sessions) if (s.blankCount) { s.data.checkin_count = attended.get(s.old) || 0; recomputed++; }
   if (recomputed) notes.push(`${recomputed} session(s) had no check-in count; it was worked out from their check-ins.`);
 
-  if (dangling) notes.push(`${dangling} check-in(s) name a roster station that is not in the export (often test entries). They are imported without a station link; pass --skip-dangling-checkins to leave them out.`);
+  if (dangling) notes.push(`${dangling} check-in(s) name a roster station that is not in the export (often test entries). They are imported without a station link (--keep-dangling-checkins).`);
 
   const seen = new Map();
   for (const c of checkIns) { const k = c.session + "|" + c.data.callsign; seen.set(k, (seen.get(k) || 0) + 1); }
@@ -205,13 +204,13 @@ async function main() {
   const args = process.argv.slice(2);
   const dir = args.find((a) => !a.startsWith("--"));
   const flag = (n) => args.includes(`--${n}`);
-  if (!dir) { console.error("usage: import-base44.mjs <folder | export.json> [--dry-run] [--allow-nonempty] [--recreate-missing-nets] [--skip-dangling-checkins]"); process.exit(2); }
+  if (!dir) { console.error("usage: import-base44.mjs <folder | export.json> [--dry-run] [--allow-nonempty] [--recreate-missing-nets] [--keep-dangling-checkins]"); process.exit(2); }
   if (!fs.existsSync(dir)) { console.error(`not found: ${dir}`); process.exit(2); }
   const DRY = flag("dry-run");
   const PB = (process.env.PB_URL || "http://127.0.0.1:8090").replace(/\/$/, "");
 
   const tables = fs.statSync(dir).isFile() ? loadJson(dir) : loadFolder(dir);
-  const p = plan(tables, { recreateMissingNets: flag("recreate-missing-nets"), skipDanglingCheckins: flag("skip-dangling-checkins") });
+  const p = plan(tables, { recreateMissingNets: flag("recreate-missing-nets"), keepDanglingCheckins: flag("keep-dangling-checkins") });
   const counts = { nets: p.nets.length, stations: p.stations.length, sessions: p.sessions.length, check_ins: p.checkIns.length, announcements: p.announcements.length };
 
   if (!DRY) {
