@@ -10,7 +10,15 @@ const call = async (p, o = {}) => {
   return r.json();
 };
 const { token } = await call("/api/collections/_superusers/auth-with-password", { method: "POST", body: JSON.stringify({ identity: process.env.PB_SUPERUSER_EMAIL, password: process.env.PB_SUPERUSER_PASSWORD }) });
-const all = async (c) => (await call(`/api/collections/${c}/records?perPage=500`, { headers: { authorization: token } })).items;
+// every page: a roster or check-in list can be longer than one page of 500
+const all = async (c) => {
+  const items = [];
+  for (let page = 1; ; page++) {
+    const r = await call(`/api/collections/${c}/records?perPage=500&page=${page}`, { headers: { authorization: token } });
+    items.push(...r.items);
+    if (page >= r.totalPages) return items;
+  }
+};
 const [nets, stations, sessions, checkIns, announcements] = await Promise.all(["nets", "stations", "net_sessions", "check_ins", "announcements"].map(all));
 
 const nid = new Set(nets.map((x) => x.id)), sid = new Set(sessions.map((x) => x.id)), stid = new Set(stations.map((x) => x.id));

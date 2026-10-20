@@ -55,7 +55,7 @@ Hourly consistent SQLite backups via cron (`/etc/cron.d/round-table-net`), 14 da
 
 ## Moving the old app's data
 
-`node scripts/import-base44.mjs <export-folder> --dry-run` first, then without `--dry-run` (see the README).
+`node scripts/import-base44.mjs <export.json or csv-folder> --dry-run` first, then without `--dry-run` (see the README, including the two options for data left behind by deleted nets).
 
 ## What was and was not tested
 

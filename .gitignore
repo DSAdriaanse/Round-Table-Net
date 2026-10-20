@@ -19,3 +19,6 @@ dist/
 .DS_Store
 restore-dates.sql
 test-results/
+
+# Base44 exports (callsigns, names, emails)
+*-export-*.json
