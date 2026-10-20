@@ -24,7 +24,7 @@ With no options it asks (hostname, how people reach the app, certificate email, 
 `--domain --mode local|proxy --email --superuser-email --pin --port --listen --proxy-ip --name --branch --repo --yes --dry-run`.
 `--dry-run` shows the plan and changes nothing; `--yes` never asks.
 
-It installs Node 22, shows a read-only deploy key to add to the GitHub repo, clones and builds, and sets up PocketBase, systemd, the firewall and backups (plus Nginx and a Let's Encrypt certificate in local mode).
+It installs Node 22, clones the public repo over HTTPS (no key; a private fork passed with an SSH `--repo` address gets a read-only deploy key to add on GitHub), builds, and sets up PocketBase, systemd, the firewall and backups (plus Nginx and a Let's Encrypt certificate in local mode).
 At the end it prints the PocketBase admin login (shown once; change it in the admin UI) and, if you did not pass `--pin`, the generated **club PIN** (also kept as the `NCO_PIN` line in the env file).
 
 **Choose a PIN of 6 or more characters.** The server allows 10 attempts per minute per address and the installer warns about short PINs, but a short PIN can still be guessed.
