@@ -75,10 +75,6 @@ PB_URL=... PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... node scripts/verify-
 
 It imports into an empty install only, keeps the old ids in a `legacy_id` field, skips rows left behind by deleted nets, and writes `restore-dates.sql` to restore the original timestamps (optional; the script prints how).
 
-## Checking for orphaned records
-
-`PB_URL=... PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... node scripts/find-orphans.mjs` is a read-only check for stations, sessions and check-ins whose link points at a net, session or station that is not there. It exits 1 and lists them if it finds any, and never changes data. PocketBase itself refuses such links and cleans up on delete (deleting a net or session deletes what belongs to it; deleting a station clears the station link on its check-ins and keeps the check-ins), so a healthy install reports nothing. Run it after an import, a restore, or any hand edit of the database file.
-
 ## Example data
 
 `example-data/` holds an export of the club's nets as received: 3 nets, 120 stations, 12 sessions, 174 check-ins, 2 announcements after the importer skips rows of a deleted net. To try the app with it, on a development copy:
@@ -88,6 +84,10 @@ node scripts/import-base44.mjs example-data
 ```
 
 **This is real club data** (callsigns, names, cities, comments). Do not leave it in a public repository unless the people in it are fine with that.
+
+## Checking for orphaned records
+
+`PB_URL=... PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... node scripts/find-orphans.mjs` is a read-only check for stations, sessions and check-ins whose link points at a net, session or station that is not there. It exits 1 and lists them if it finds any, and never changes data. PocketBase itself refuses such links and cleans up on delete (deleting a net or session deletes what belongs to it; deleting a station clears the station link on its check-ins and keeps the check-ins), so a healthy install reports nothing. Run it after an import, a restore, or any hand edit of the database file.
 
 ## Developing
 
