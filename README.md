@@ -12,7 +12,7 @@ It replaces the Base44 app of the same name and runs on one small Debian server 
 
 - A Debian or Ubuntu server you can reach over SSH as root, 2 GB of RAM or more (the front-end build needs it; add a swap file on a smaller machine).
 - A hostname pointing at the server, for example `net.example.org`, if you want Nginx and a free TLS certificate installed for you. If you already run a reverse proxy elsewhere you can skip this (see "Reverse proxy mode" in [docs/deployment.md](docs/deployment.md)).
-- Read access to this repository from the server. The installer creates a read-only deploy key and shows it to you to paste into GitHub (Settings, Deploy keys, leave "Allow write access" unchecked).
+- Nothing to set up for repository access: the repository is public and the installer clones it over HTTPS. (Only for a private fork: pass `--repo git@github.com:you/your-fork.git` and the installer creates a read-only deploy key and shows it to you to paste into GitHub, Settings, Deploy keys, "Allow write access" unchecked.)
 - Optional, can be added later: a WordPress application password to post reports, an Anthropic API key for the one-paragraph summary in those posts.
 
 ## Install
