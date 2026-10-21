@@ -32,7 +32,18 @@ async function main() {
     if (!r.ok) throw new Error(`${p} -> ${r.status}`);
     return r.json();
   };
-  const { token } = await call("/api/collections/_superusers/auth-with-password", { method: "POST", body: JSON.stringify({ identity: process.env.PB_SUPERUSER_EMAIL, password: process.env.PB_SUPERUSER_PASSWORD }) });
+  // PocketBase rate-limits logins (429), and the import and verify scripts have just logged in
+  // too, so wait a few seconds and try again instead of failing.
+  let token;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      ({ token } = await call("/api/collections/_superusers/auth-with-password", { method: "POST", body: JSON.stringify({ identity: process.env.PB_SUPERUSER_EMAIL, password: process.env.PB_SUPERUSER_PASSWORD }) }));
+      break;
+    } catch (e) {
+      if (!String(e.message).endsWith("-> 429") || attempt >= 6) throw e;
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+  }
   const all = async (c) => {
     const items = [];
     for (let page = 1; ; page++) {
