@@ -85,6 +85,10 @@ node scripts/import-base44.mjs example-data
 
 **This is real club data** (callsigns, names, cities, comments). Do not leave it in a public repository unless the people in it are fine with that.
 
+## Checking for orphaned records
+
+`PB_URL=... PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... node scripts/find-orphans.mjs` is a read-only check for stations, sessions and check-ins whose link points at a net, session or station that is not there. It exits 1 and lists them if it finds any, and never changes data. PocketBase itself refuses such links and cleans up on delete (deleting a net or session deletes what belongs to it; deleting a station clears the station link on its check-ins and keeps the check-ins), so a healthy install reports nothing. Run it after an import, a restore, or any hand edit of the database file.
+
 ## Developing
 
 You need Node 22 and the PocketBase 0.36 binary (download from the PocketBase releases page).
@@ -99,7 +103,7 @@ NCO_PIN=dev-pin-123 TZ=America/Phoenix ./pocketbase serve --dir ./pb_dev \
 cd web && npm ci && npm run dev        # http://localhost:5173
 ```
 
-Checks: `npm run lint && npm run typecheck && npm run build` in `web/`; `node --test backend/test/api.test.mjs` (backend, see `backend/test/README.md`); `bash deploy/test/install.test.sh` (installer); `node --test scripts/import-base44.test.mjs` (importer). CI runs all of them on every pull request.
+Checks: `npm run lint && npm run typecheck && npm run build` in `web/`; `node --test backend/test/api.test.mjs` (backend, see `backend/test/README.md`); `bash deploy/test/install.test.sh` (installer); `node --test scripts/import-base44.test.mjs scripts/find-orphans.test.mjs` (importer and orphan check). CI runs all of them on every pull request.
 
 Where things are: [docs/code-map.md](docs/code-map.md). Server routes: [docs/endpoints.md](docs/endpoints.md).
 
