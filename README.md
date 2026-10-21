@@ -64,16 +64,23 @@ Hourly, kept 14 days, in `/var/backups/round-table-net`. Copy that folder off th
 
 ## Moving the old data
 
-Export the five tables from Base44 as CSV (Net, Station, NetSession, CheckIn, Announcement) into one folder, then from any computer with Node 22:
+Use the app's "Export all data" button, which downloads one JSON file, or export the five tables from Base44 as CSV (Net, Station, NetSession, CheckIn, Announcement) into one folder. Then, from any computer with Node 22:
 
 ```bash
-node scripts/import-base44.mjs ./export-folder --dry-run        # reads and checks the files, changes nothing
+node scripts/import-base44.mjs ./export.json --dry-run          # or a CSV folder; reads and checks the file, changes nothing
 PB_URL=https://net.example.org PB_SUPERUSER_EMAIL=you@example.org PB_SUPERUSER_PASSWORD='...' \
-  node scripts/import-base44.mjs ./export-folder
+  node scripts/import-base44.mjs ./export.json
 PB_URL=... PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... node scripts/verify-import.mjs
 ```
 
 It imports into an empty install only, keeps the old ids in a `legacy_id` field, skips rows left behind by deleted nets, and writes `restore-dates.sql` to restore the original timestamps (optional; the script prints how).
+
+Orphaned data is skipped by default, and the dry run says how many rows each rule affects: rows that belong to a net the old app deleted, and check-ins that name a roster station that is not in the export (usually test entries). Two options change that:
+
+- `--recreate-missing-nets`: makes a net for each deleted net, named from its sessions, so its stations, sessions and check-ins are kept. Its weekday is a guess and its time is unknown, so edit it afterwards. It shows in the net list like any other net, and deleting it also deletes its history.
+- `--keep-dangling-checkins`: imports the check-ins that name a missing roster station, with no station link.
+
+The export file holds callsigns, names and user emails: keep it out of git (`*-export-*.json` is ignored).
 
 ## Example data
 
