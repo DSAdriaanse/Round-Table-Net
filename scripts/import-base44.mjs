@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-// Import a Base44 CSV export (Net, Station, NetSession, CheckIn, Announcement) into PocketBase.
+// Import a Base44 export (Net, Station, NetSession, CheckIn, Announcement) into PocketBase.
+// The export can be a folder of CSV files (*_export.csv) or the single JSON file made by the app's
+// "Export all data" button.
 //
 //   PB_URL=http://127.0.0.1:8090 PB_SUPERUSER_EMAIL=... PB_SUPERUSER_PASSWORD=... \
-//   node scripts/import-base44.mjs <folder-with-*_export.csv> [--dry-run] [--allow-nonempty]
+//   node scripts/import-base44.mjs <folder-with-*_export.csv | export.json> [--dry-run] [--allow-nonempty]
+//        [--recreate-missing-nets] [--keep-dangling-checkins]
 //
 // What it does
 //   * Base44 ids (24 hex characters) become PocketBase ids. The old id is kept in each record's
@@ -13,7 +16,12 @@
 //   * Callsigns are trimmed and upper-cased. Blank numbers become 0; a blank checkin_count is
 //     recomputed from the session's check-ins (everyone except "not heard").
 //   * Rows that point at a net, session or station that is not in the export are skipped and counted
-//     (the old app left such rows behind when a net was deleted). Nothing is invented for them.
+//     (the old app left such rows behind when a net was deleted). Nothing is invented for them, unless
+//     you ask: --recreate-missing-nets makes a net for each missing net id (named from its sessions) so
+//     that history is kept. Its day and time are guesses; edit them or delete the net (which also
+//     deletes its history).
+//   * A check-in that names a roster station that is not in the export is skipped and counted (they are
+//     usually test entries). --keep-dangling-checkins imports them without a station link instead.
 //   * Rows flagged is_sample in the export are skipped.
 //   * The old data holds repeated check-ins for one callsign in one session. They are imported as they
 //     are (the server refuses new ones, but this script signs in as superuser).
@@ -43,6 +51,7 @@ export function parseCsv(text) {
   return body.map((r) => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""])));
 }
 
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const bool = (v) => String(v).toLowerCase() === "true";
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
 const callsign = (v) => String(v || "").trim().toUpperCase();
@@ -58,7 +67,7 @@ const iso = (v) => { const s = pbDate(v); return s ? s.replace(" ", "T") : ""; }
  * Turns the parsed export into the records to create, in order, with links expressed as old ids.
  * Pure (no network), so --dry-run and the tests use exactly what the real run uses.
  */
-export function plan(tables) {
+export function plan(tables, opts = {}) {
   const notes = [];
   const skipped = {};
   const skip = (kind, why) => { skipped[why] = (skipped[why] || 0) + 1; return null; };
@@ -67,6 +76,30 @@ export function plan(tables) {
 
   const nets = live(tables.Net).map((r) => ({ old: r.id, dates: [r.created_date, r.updated_date], data: {
     name: r.name, day_of_week: r.day_of_week, time: r.time, frequency: r.frequency, preamble: r.preamble, closing: r.closing, legacy_id: r.id } }));
+  if (opts.recreateMissingNets) {
+    const refs = new Map(); // missing net id -> what points at it
+    const ref = (id, kind, r) => {
+      if (!id || nets.some((n) => n.old === id)) return;
+      const e = refs.get(id) || { stations: 0, sessions: 0, checkIns: 0, names: new Map(), days: new Map(), created: "" };
+      e[kind]++;
+      if (kind === "sessions") {
+        if (r.net_name) e.names.set(r.net_name, (e.names.get(r.net_name) || 0) + 1);
+        const d = new Date(r.date + "T00:00:00Z");
+        if (!isNaN(d)) { const day = DAYS[(d.getUTCDay() + 6) % 7]; e.days.set(day, (e.days.get(day) || 0) + 1); }
+        if (r.created_date && (!e.created || r.created_date < e.created)) e.created = r.created_date;
+      }
+      refs.set(id, e);
+    };
+    for (const r of live(tables.Station)) ref(r.net_id, "stations", r);
+    for (const r of live(tables.NetSession)) ref(r.net_id, "sessions", r);
+    for (const r of live(tables.CheckIn)) ref(r.net_id, "checkIns", r);
+    const top = (m, dflt) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || dflt;
+    for (const [id, e] of refs) {
+      const name = top(e.names, `Recovered net ${id.slice(0, 6)}`);
+      nets.push({ old: id, dates: [e.created, e.created], data: { name, day_of_week: top(e.days, "Monday"), time: "Unknown", frequency: "", preamble: "", closing: "", legacy_id: id } });
+      notes.push(`Recreated the net "${name}" (old id ${id}) that the old app had deleted, for ${e.stations} station(s), ${e.sessions} session(s) and ${e.checkIns} check-in(s). Its day (${top(e.days, "Monday")}) is a guess from its sessions and its time is unknown: edit it, or delete it (that also deletes its history).`);
+    }
+  }
   const netIds = new Set(nets.map((n) => n.old));
 
   const stations = []; const stationKeys = new Set();
@@ -87,9 +120,10 @@ export function plan(tables) {
   const keptByKey = new Map(stations.map((s) => [s.net + "|" + s.data.callsign, s.old]));
 
   const sessions = [];
+  // blankCount: the CSV has an empty cell, the JSON leaves the key out; both mean "work it out from the check-ins".
   for (const r of live(tables.NetSession)) {
     if (!netIds.has(r.net_id)) { missing.net.add(r.net_id); skip("session", "sessions skipped: their net is not in the export (deleted in the old app)"); continue; }
-    sessions.push({ old: r.id, net: r.net_id, dates: [r.created_date, r.updated_date], blankCount: r.checkin_count === "", data: {
+    sessions.push({ old: r.id, net: r.net_id, dates: [r.created_date, r.updated_date], blankCount: r.checkin_count === "" || r.checkin_count === undefined, data: {
       net_name: r.net_name, date: r.date, status: r.status || "closed", nco_callsign: callsign(r.nco_callsign), topic: r.topic, notes: r.notes,
       opened_at: iso(r.opened_at), closed_at: iso(r.closed_at), roster_updated: bool(r.roster_updated), technical_difficulty: bool(r.technical_difficulty),
       checkin_count: Math.round(num(r.checkin_count)), legacy_id: r.id } });
@@ -97,12 +131,19 @@ export function plan(tables) {
   const sessionIds = new Set(sessions.map((s) => s.old));
 
   const checkIns = [];
+  let dangling = 0;
   for (const r of live(tables.CheckIn)) {
     if (!sessionIds.has(r.session_id)) { missing.session.add(r.session_id); skip("check-in", "check-ins skipped: their session is not in the export (it belonged to a deleted net)"); continue; }
     const cs = callsign(r.callsign);
     if (!cs) { skip("check-in", "check-ins skipped: no callsign"); continue; }
     let station = r.station_id;
-    if (station && !stationIds.has(station)) station = keptByKey.get(r.net_id + "|" + cs) || "";
+    if (station && !stationIds.has(station)) {
+      station = keptByKey.get(r.net_id + "|" + cs) || "";
+      if (!station) {
+        if (!opts.keepDanglingCheckins) { skip("check-in", "check-ins skipped: they name a roster station that is not in the export"); continue; }
+        dangling++;
+      }
+    }
     checkIns.push({ old: r.id, session: r.session_id, station, net: netIds.has(r.net_id) ? r.net_id : "", dates: [r.created_date, r.updated_date], data: {
       callsign: cs, status: r.status || "checked_in", comment: r.comment, name: r.name, location: r.location, legacy_id: r.id } });
   }
@@ -113,6 +154,8 @@ export function plan(tables) {
   let recomputed = 0;
   for (const s of sessions) if (s.blankCount) { s.data.checkin_count = attended.get(s.old) || 0; recomputed++; }
   if (recomputed) notes.push(`${recomputed} session(s) had no check-in count; it was worked out from their check-ins.`);
+
+  if (dangling) notes.push(`${dangling} check-in(s) name a roster station that is not in the export (often test entries). They are imported without a station link (--keep-dangling-checkins).`);
 
   const seen = new Map();
   for (const c of checkIns) { const k = c.session + "|" + c.data.callsign; seen.set(k, (seen.get(k) || 0) + 1); }
@@ -137,16 +180,37 @@ export function loadFolder(dir) {
   return tables;
 }
 
+const ENTITIES = ["Net", "Station", "NetSession", "CheckIn", "Announcement"];
+
+// The JSON export keeps real types (true, 5, null). Turn every value into the text a CSV cell would hold,
+// so plan() sees the same thing from either source.
+export function stringifyRow(r) {
+  return Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v === null || v === undefined ? "" : typeof v === "object" ? JSON.stringify(v) : String(v)]));
+}
+
+/** Reads the single-file JSON export ({ meta, schema, Net: [...], Station: [...], ... }). */
+export function loadJson(file) {
+  const data = JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
+  if (!ENTITIES.some((e) => Array.isArray(data[e]))) throw new Error(`${file} does not look like a Base44 export: none of ${ENTITIES.join(", ")} is a list`);
+  const tables = {};
+  for (const entity of ENTITIES) {
+    if (Array.isArray(data[entity])) tables[entity] = data[entity].map(stringifyRow);
+    else { tables[entity] = []; console.error(`note: no ${entity} list in ${file}`); }
+  }
+  return tables;
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const dir = args.find((a) => !a.startsWith("--"));
   const flag = (n) => args.includes(`--${n}`);
-  if (!dir) { console.error("usage: import-base44.mjs <folder> [--dry-run] [--allow-nonempty]"); process.exit(2); }
-  if (!fs.existsSync(dir)) { console.error(`folder not found: ${dir}`); process.exit(2); }
+  if (!dir) { console.error("usage: import-base44.mjs <folder | export.json> [--dry-run] [--allow-nonempty] [--recreate-missing-nets] [--keep-dangling-checkins]"); process.exit(2); }
+  if (!fs.existsSync(dir)) { console.error(`not found: ${dir}`); process.exit(2); }
   const DRY = flag("dry-run");
   const PB = (process.env.PB_URL || "http://127.0.0.1:8090").replace(/\/$/, "");
 
-  const p = plan(loadFolder(dir));
+  const tables = fs.statSync(dir).isFile() ? loadJson(dir) : loadFolder(dir);
+  const p = plan(tables, { recreateMissingNets: flag("recreate-missing-nets"), keepDanglingCheckins: flag("keep-dangling-checkins") });
   const counts = { nets: p.nets.length, stations: p.stations.length, sessions: p.sessions.length, check_ins: p.checkIns.length, announcements: p.announcements.length };
 
   if (!DRY) {
