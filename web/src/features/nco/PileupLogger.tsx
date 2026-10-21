@@ -9,16 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAllStations } from "@/hooks/useNetData";
 import { toast } from "@/lib/toast";
-
-interface Row {
-  callsign: string; name: string; location: string; state: string; comment: string;
-  isGuest: boolean; matched: boolean; station: Station | null; status: CheckInStatus;
-}
-
-const makeRow = (defaultStatus: CheckInStatus): Row => ({
-  callsign: "", name: "", location: "", state: "", comment: "",
-  isGuest: false, matched: false, station: null, status: defaultStatus,
-});
+import { finalStatus, makeRow, matchRow, typeCallsign } from "./pileupRow";
+import type { Row } from "./pileupRow";
 
 const NO_SUGGESTIONS = { index: null as number | null, list: [] as Station[] };
 
@@ -36,24 +28,20 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
   const updateRow = (i: number, field: keyof Row, value: string) => {
     setRows((prev) => {
       const next = [...prev];
-      next[i] = { ...next[i], [field]: value };
-
-      if (field === "callsign") {
-        const cs = value.trim().toUpperCase();
-        next[i].callsign = cs;
-        const exactMatch = stations.find((s) => s.callsign === cs);
-        if (exactMatch) {
-          Object.assign(next[i], { name: exactMatch.name || "", location: exactMatch.city || "", state: exactMatch.state || "", matched: true, isGuest: false, station: exactMatch });
-          setSuggestions(NO_SUGGESTIONS);
+      if (field !== "callsign") {
+        next[i] = { ...next[i], [field]: value };
+        return next;
+      }
+      next[i] = typeCallsign(next[i], value, stations);
+      if (next[i].matched) {
+        setSuggestions(NO_SUGGESTIONS);
+      } else {
+        const cs = next[i].callsign;
+        if (cs.length >= 2) {
+          const partial = stations.filter((s) => s.callsign.includes(cs) || s.name?.toUpperCase().includes(cs)).slice(0, 6);
+          setSuggestions({ index: i, list: partial });
         } else {
-          if (next[i].matched) Object.assign(next[i], { name: "", location: "", state: "" });
-          Object.assign(next[i], { matched: false, isGuest: true, status: "guest", station: null });
-          if (cs.length >= 2) {
-            const partial = stations.filter((s) => s.callsign.includes(cs) || s.name?.toUpperCase().includes(cs)).slice(0, 6);
-            setSuggestions({ index: i, list: partial });
-          } else {
-            setSuggestions(NO_SUGGESTIONS);
-          }
+          setSuggestions(NO_SUGGESTIONS);
         }
       }
       return next;
@@ -63,7 +51,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
   const applySuggestion = (i: number, station: Station) => {
     setRows((prev) => {
       const next = [...prev];
-      next[i] = { ...next[i], callsign: station.callsign, name: station.name || "", location: station.city || "", state: station.state || "", matched: true, isGuest: false, station };
+      next[i] = matchRow(next[i], station);
       return next;
     });
     setSuggestions(NO_SUGGESTIONS);
@@ -130,18 +118,18 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
       // Check-in side: update a callsign that is already in this session, else add it.
       await Promise.all(
         toLog.map(async (row) => {
-          const finalStatus: CheckInStatus = row.isGuest ? "guest" : row.status;
+          const status = finalStatus(row);
           const existingRecord = existingByCallsign.get(row.callsign.toUpperCase());
           if (existingRecord) {
             await updateCheckIn(existingRecord.id, {
-              status: finalStatus,
+              status,
               station_id: row.station?.id || existingRecord.station_id,
               comment: row.comment || existingRecord.comment,
             });
           } else {
             await createCheckIn({
               session_id: session.id, net_id: netId, callsign: row.callsign, station_id: row.station?.id || "",
-              status: finalStatus, name: row.name, location: `${row.location}${row.state ? ", " + row.state : ""}`, comment: row.comment || "",
+              status, name: row.name, location: `${row.location}${row.state ? ", " + row.state : ""}`, comment: row.comment || "",
             });
           }
         }),
