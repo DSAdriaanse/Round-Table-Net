@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import CreditLine from "@/components/CreditLine";
 import { BookOpen, Cog, ChevronDown, Globe, History, LayoutDashboard, List, LogOut, Megaphone, Menu, Printer, Radio, Settings, X, type LucideIcon } from "lucide-react";
 import { NetProvider, useNet } from "@/components/NetContext";
 import NetSelectionGate from "@/components/NetSelectionGate";
@@ -142,6 +143,7 @@ function LayoutInner() {
 
       <main className="flex-1 min-w-0 overflow-auto pt-12 md:pt-0">
         <Outlet />
+        <CreditLine />
       </main>
     </div>
   );

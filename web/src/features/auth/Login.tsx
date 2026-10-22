@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Radio } from "lucide-react";
 import { auth } from "@/api";
+import CreditLine from "@/components/CreditLine";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "./AuthContext";
@@ -78,6 +79,7 @@ export default function Login() {
         <a href="/check-in" className="block text-gray-500 hover:text-gray-300 text-xs mt-6 underline">
           Just checking in to a net? Use the public check-in page
         </a>
+        <CreditLine />
       </div>
     </div>
   );

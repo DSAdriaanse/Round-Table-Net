@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Radio, Users } from "lucide-react";
 import { publicCheckIn, publicNets, publicSession } from "@/api";
 import type { PublicNet, PublicSession } from "@/api";
+import CreditLine from "@/components/CreditLine";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -178,6 +179,7 @@ export default function PublicCheckin() {
             </CardContent>
           </Card>
         )}
+        <CreditLine />
       </div>
     </div>
   );
