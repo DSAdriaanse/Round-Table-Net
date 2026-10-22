@@ -41,3 +41,9 @@ test("the credit line is escaped; empty falls back to the host name", () => {
   assert.equal(tileLayerFor({ map_tile_url: MT, map_api_key: "k", map_attribution: '<img src=x onerror=alert(1)>' }).attribution, "&lt;img src=x onerror=alert(1)&gt;");
   assert.equal(tileLayerFor({ map_tile_url: MT, map_api_key: "k" }).attribution, "Map tiles: api.maptiler.com");
 });
+
+test("CARTO's keyed raster address works with a key", () => {
+  const t = tileLayerFor({ map_tile_url: "https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key={key}", map_api_key: "abc123", map_attribution: "© OpenStreetMap contributors, © CARTO" });
+  assert.equal(t.url, "https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=abc123");
+  assert.equal(t.custom, true);
+});

@@ -1,10 +1,11 @@
 // Which map tiles to draw. The club can set a tile provider and API key in Settings; without one, or with one
-// that cannot work, the map falls back to the free CARTO dark tiles. Pure and relative-import only so Node can
+// that cannot work, the map falls back to CARTO's dark tiles. CARTO now wants a (free) key on its tile requests:
+// without one its tiles carry an "API KEY REQUIRED" watermark, so the fallback is a stopgap, not a working default. Pure and relative-import only so Node can
 // test it (tileConfig.test.mjs).
 
 export const DEFAULT_TILES = {
   url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  attribution: '© <a href="https://carto.com/">CARTO</a>', // fixed text of ours, so it is not escaped
+  attribution: '© OpenStreetMap contributors, © <a href="https://carto.com/">CARTO</a>', // fixed text of ours, so it is not escaped
 };
 
 export interface TileSettings { map_tile_url?: string; map_attribution?: string; map_api_key?: string }

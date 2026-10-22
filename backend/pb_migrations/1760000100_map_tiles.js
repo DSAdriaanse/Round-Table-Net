@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 //
 // Map tiles: lets the club use a tile provider that needs an API key (MapTiler, Stadia, Thunderforest,
-// Mapbox and similar) instead of the free CARTO tiles. All three fields are optional; empty means CARTO.
+// Mapbox and similar) (CARTO now needs one too; it is free for non-profits). All three fields are optional; empty means CARTO's tiles without a key, which show a watermark.
 //
 //   map_tile_url     tile address with {z}/{x}/{y} and, where the provider wants a key, a {key} placeholder
 //   map_attribution  the credit line the provider asks for (plain text)
