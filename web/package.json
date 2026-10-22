@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --quiet",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/features/nco/pileupRow.test.mjs"
+    "test": "node --test src/features/nco/pileupRow.test.mjs src/lib/tileConfig.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",

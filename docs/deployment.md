@@ -32,7 +32,7 @@ Passing `--pin` on the command line leaves it in the shell history and process l
 
 ## Settings
 
-- **In the app** (Settings screen): club name, WordPress address, username and category, and whether to post the report when a session closes.
+- **In the app** (Settings screen): club name, WordPress address, username and category, whether to post the report when a session closes, and the map. For the map, paste a provider's tile address with `{key}` where the key goes (for example `https://api.maptiler.com/maps/dataviz-dark/{z}/{x}/{y}.png?key={key}`), the key, and the credit line the provider asks for. Empty means the free CARTO tiles, and an address that cannot work (not https, missing `{z}/{x}/{y}`, `{key}` without a key) also falls back to CARTO with a warning on the screen. Map keys are visible in the browser, so restrict the key to the site's address at the provider. The address examples are not tested against any provider.
 - **In `/etc/round-table-net/env`** (then `systemctl restart round-table-net`): `NCO_PIN`, `WORDPRESS_APP_PASSWORD`, `ANTHROPIC_API_KEY` (optional, adds a summary paragraph), `TZ` (the club's time zone; session dates and post times follow it).
 
 ## Update
