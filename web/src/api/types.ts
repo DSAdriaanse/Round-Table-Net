@@ -84,6 +84,8 @@ export interface Settings extends BaseRecord {
   map_tile_url: string;
   map_attribution: string;
   map_api_key: string;
+  /** File name of the uploaded group logo, or empty. */
+  logo: string;
 }
 
 /** A live update from the server about one record. */
