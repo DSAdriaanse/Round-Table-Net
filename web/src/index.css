@@ -127,7 +127,6 @@
     background: white;
     color: black;
   }
-  .print:hidden { display: none !important; }
   @page {
     margin: 0.5in;
   }
