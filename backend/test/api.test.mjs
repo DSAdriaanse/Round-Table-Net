@@ -475,6 +475,20 @@ test("publish: a WordPress failure is reported, not hidden", async () => {
   assert.equal((await nco("/api/rt/session/publish", { method: "POST", body: {} })).status, 400);
 });
 
+test("settings: the map tile fields exist, start empty, save, and only the club account can read them", async () => {
+  const rec = (await nco("/api/collections/settings/records")).json.items[0];
+  for (const f of ["map_tile_url", "map_attribution", "map_api_key"]) assert.equal(rec[f], "", `${f} starts empty`);
+  const upd = await nco(`/api/collections/settings/records/${rec.id}`, {
+    method: "PATCH", body: { map_tile_url: "https://t.example.org/{z}/{x}/{y}.png?key={key}", map_api_key: "k-123", map_attribution: "(c) Example" },
+  });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.json.map_api_key, "k-123");
+  // A list rule that fails answers 200 with nothing in it, not an error.
+  assert.deepEqual((await api("/api/collections/settings/records")).json.items, [], "signed out sees no settings");
+  assert.equal((await api(`/api/collections/settings/records/${rec.id}`)).status, 404, "signed out cannot view the record");
+  await nco(`/api/collections/settings/records/${rec.id}`, { method: "PATCH", body: { map_tile_url: "", map_api_key: "", map_attribution: "" } });
+});
+
 // ------------------------------------------------------------- rate limiting
 
 test("rate limit: the PIN route stops a flood of guesses", async () => {
