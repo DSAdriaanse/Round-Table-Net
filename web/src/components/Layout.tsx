@@ -88,8 +88,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         ))}
       </nav>
 
-      <div className="px-3 py-3 border-t border-gray-800 flex items-center justify-between">
-        {!collapsed && <p className="text-gray-600 text-xs">73 de Net Control</p>}
+      <div className={`px-3 py-3 border-t border-gray-800 flex items-center ${collapsed ? "justify-between" : "justify-end"}`}>
         <button onClick={signOut} title="Sign out" aria-label="Sign out" className="text-gray-500 hover:text-white p-1 rounded">
           <LogOut className="w-4 h-4" />
         </button>
