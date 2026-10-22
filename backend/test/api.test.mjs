@@ -475,6 +475,52 @@ test("publish: a WordPress failure is reported, not hidden", async () => {
   assert.equal((await nco("/api/rt/session/publish", { method: "POST", body: {} })).status, 400);
 });
 
+test("settings: the map tile fields exist, start empty, save, and only the club account can read them", async () => {
+  const rec = (await nco("/api/collections/settings/records")).json.items[0];
+  for (const f of ["map_tile_url", "map_attribution", "map_api_key"]) assert.equal(rec[f], "", `${f} starts empty`);
+  const upd = await nco(`/api/collections/settings/records/${rec.id}`, {
+    method: "PATCH", body: { map_tile_url: "https://t.example.org/{z}/{x}/{y}.png?key={key}", map_api_key: "k-123", map_attribution: "(c) Example" },
+  });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.json.map_api_key, "k-123");
+  // A list rule that fails answers 200 with nothing in it, not an error.
+  assert.deepEqual((await api("/api/collections/settings/records")).json.items, [], "signed out sees no settings");
+  assert.equal((await api(`/api/collections/settings/records/${rec.id}`)).status, 404, "signed out cannot view the record");
+  await nco(`/api/collections/settings/records/${rec.id}`, { method: "PATCH", body: { map_tile_url: "", map_api_key: "", map_attribution: "" } });
+});
+
+// A 1x1 transparent PNG.
+const TINY_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+const putLogo = (token, bytes, type, name) => {
+  const body = new FormData();
+  body.append("logo", new Blob([bytes], { type }), name);
+  return fetch(`${PB}/api/collections/settings/records/${logoSettingsId}`, { method: "PATCH", headers: { Authorization: token }, body });
+};
+let logoSettingsId;
+
+test("logo: a transparent PNG uploads, is served, and can be removed; other files are refused", async () => {
+  const rec = (await nco("/api/collections/settings/records")).json.items[0];
+  logoSettingsId = rec.id;
+  assert.equal(rec.logo, "", "starts with no logo");
+
+  const ok = await putLogo(S.nco, TINY_PNG, "image/png", "club.png");
+  assert.equal(ok.status, 200);
+  const saved = await ok.json();
+  assert.match(saved.logo, /^club.*\.png$/);
+  const img = await fetch(`${PB}/api/files/settings/${rec.id}/${saved.logo}`);
+  assert.equal(img.status, 200, "the logo loads in an <img> without a token");
+  assert.equal(img.headers.get("content-type"), "image/png");
+
+  assert.equal((await putLogo(S.nco, Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"), "image/svg+xml", "x.svg")).status, 400, "SVG refused");
+  assert.equal((await putLogo(S.nco, Buffer.from("this is not a picture"), "image/png", "fake.png")).status, 400, "text named .png refused");
+  assert.equal((await putLogo(S.nco, Buffer.concat([TINY_PNG, Buffer.alloc(1024 * 1024)]), "image/png", "big.png")).status, 400, "over 1 MB refused");
+  assert.equal((await nco("/api/collections/settings/records")).json.items[0].logo, saved.logo, "refused uploads change nothing");
+
+  const gone = await nco(`/api/collections/settings/records/${rec.id}`, { method: "PATCH", body: { logo: null } });
+  assert.equal(gone.status, 200);
+  assert.equal(gone.json.logo, "");
+});
+
 // ------------------------------------------------------------- rate limiting
 
 test("rate limit: the PIN route stops a flood of guesses", async () => {

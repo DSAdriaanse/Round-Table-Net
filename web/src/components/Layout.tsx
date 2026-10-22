@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import CreditLine from "@/components/CreditLine";
+import GroupLogo from "@/components/GroupLogo";
 import { BookOpen, Cog, ChevronDown, Globe, History, LayoutDashboard, List, LogOut, Megaphone, Menu, Printer, Radio, Settings, X, type LucideIcon } from "lucide-react";
 import { NetProvider, useNet } from "@/components/NetContext";
 import NetSelectionGate from "@/components/NetSelectionGate";
@@ -87,8 +89,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         ))}
       </nav>
 
-      <div className="px-3 py-3 border-t border-gray-800 flex items-center justify-between">
-        {!collapsed && <p className="text-gray-600 text-xs">73 de Net Control</p>}
+      <div className={`px-3 py-3 border-t border-gray-800 flex items-center ${collapsed ? "justify-between" : "justify-end"}`}>
         <button onClick={signOut} title="Sign out" aria-label="Sign out" className="text-gray-500 hover:text-white p-1 rounded">
           <LogOut className="w-4 h-4" />
         </button>
@@ -114,6 +115,7 @@ function LayoutInner() {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-40 flex">
           <aside className="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+            <GroupLogo />
             <div className="flex items-center justify-between px-3 py-3 border-b border-gray-800">
               <span className="font-bold text-sm">Round Table Net</span>
               <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-gray-400 p-1"><X className="w-4 h-4" /></button>
@@ -126,6 +128,7 @@ function LayoutInner() {
 
       {/* Wide screen: fixed sidebar */}
       <aside className={`hidden md:flex ${collapsed ? "w-14" : "w-52"} flex-shrink-0 bg-gray-900 border-r border-gray-800 flex-col transition-all duration-200`}>
+        <GroupLogo collapsed={collapsed} />
         <div className="flex items-center gap-3 px-3 py-4 border-b border-gray-800">
           <button onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? "Expand menu" : "Collapse menu"} className="text-gray-400 hover:text-white p-1 rounded">
             {collapsed ? <Menu className="w-5 h-5" /> : <X className="w-4 h-4" />}
@@ -142,6 +145,7 @@ function LayoutInner() {
 
       <main className="flex-1 min-w-0 overflow-auto pt-12 md:pt-0">
         <Outlet />
+        <CreditLine />
       </main>
     </div>
   );

@@ -80,6 +80,12 @@ export interface Settings extends BaseRecord {
   wordpress_username: string;
   wordpress_category: string;
   publish_on_close: boolean;
+  /** Optional map tile provider. Empty means the free CARTO tiles. */
+  map_tile_url: string;
+  map_attribution: string;
+  map_api_key: string;
+  /** File name of the uploaded group logo, or empty. */
+  logo: string;
 }
 
 /** A live update from the server about one record. */

@@ -32,7 +32,7 @@ Passing `--pin` on the command line leaves it in the shell history and process l
 
 ## Settings
 
-- **In the app** (Settings screen): club name, WordPress address, username and category, and whether to post the report when a session closes.
+- **In the app** (Settings screen): club name, the group logo (PNG, JPG or WebP, at most 512 x 512 pixels and 1 MB; stored in the database folder with the rest of the data, so the hourly backup includes it), WordPress address, username and category, whether to post the report when a session closes, and the map. For the map, enter a tile address with `{key}` where the key goes, the key, and the credit line the provider asks for. CARTO now requires an API key on its tiles (free for non-profits, up to 5M requests a month; request one at https://carto.com/basemaps/apikey/). Without a key the map still loads but shows an "API KEY REQUIRED" watermark. For CARTO dark use `https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key={key}` and the credit `© OpenStreetMap contributors, © CARTO`. Any other provider that takes a key works the same way. An address that cannot work (not https, missing `{z}/{x}/{y}`, `{key}` without a key) falls back to CARTO without a key and shows a warning on the screen. Map keys are visible in the browser, so restrict the key to the site's address if the provider allows it. The addresses above come from the providers' documentation and have not been tried against the live services.
 - **In `/etc/round-table-net/env`** (then `systemctl restart round-table-net`): `NCO_PIN`, `WORDPRESS_APP_PASSWORD`, `ANTHROPIC_API_KEY` (optional, adds a summary paragraph), `TZ` (the club's time zone; session dates and post times follow it).
 
 ## Update
