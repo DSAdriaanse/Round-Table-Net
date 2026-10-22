@@ -34,7 +34,7 @@ At the end it prints, once, the PocketBase admin login (the database admin, sepa
 Then:
 
 1. Open your hostname and sign in with the club PIN.
-2. **Settings**: club name, the map (tile address and API key; CARTO's is free for non-profits), and, to post reports to WordPress, the site address, username and category. The WordPress password and the AI key go in `/etc/round-table-net/env` on the server (listed in `.env.example`); run `systemctl restart round-table-net` afterwards.
+2. **Settings**: club name, a group logo (shown at the top of the menu; PNG, JPG or WebP up to 512 x 512 pixels, transparent PNG works), the map (tile address and API key; CARTO's is free for non-profits), and, to post reports to WordPress, the site address, username and category. The WordPress password and the AI key go in `/etc/round-table-net/env` on the server (listed in `.env.example`); run `systemctl restart round-table-net` afterwards.
 3. **Manage Nets** to add your nets and their opening and closing scripts, **Roster Manager** to add stations (or bulk-paste them from a spreadsheet), **Announcements** for the opening.
 4. Coming from the Base44 app? See "Moving the old data" below.
 

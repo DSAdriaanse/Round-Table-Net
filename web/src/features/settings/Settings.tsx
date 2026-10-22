@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Settings as SettingsIcon } from "lucide-react";
-import { getSettings, updateSettings } from "@/api";
+import { getSettings, logoUrl, removeLogo, updateSettings, uploadLogo } from "@/api";
 import type { Settings as SettingsRecord } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { LOGO_TYPES, MAX_LOGO_PX, logoProblem } from "@/lib/logo";
 import { tileLayerFor } from "@/lib/tileConfig";
 import { toast } from "@/lib/toast";
 
@@ -21,6 +22,9 @@ export default function Settings() {
   const [form, setForm] = useState<Form | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getSettings().then(
@@ -32,6 +36,52 @@ export default function Settings() {
       (e) => setError(`Could not load settings: ${e.message}`),
     );
   }, []);
+
+  // The picture's pixel size is read in the browser, because the server cannot read it.
+  const imageSize = (file: File) => new Promise<{ width: number; height: number }>((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve({ width: img.naturalWidth, height: img.naturalHeight }); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolve({ width: 0, height: 0 }); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+
+  const saved = (next: SettingsRecord) => {
+    setRecord(next);
+    queryClient.setQueryData(["settings"], next); // the sidebar picks it up at once
+  };
+
+  const pickLogo = async (file: File | undefined) => {
+    if (!file || !record) return;
+    setLogoError("");
+    const { width, height } = await imageSize(file);
+    const problem = logoProblem(file, width, height);
+    if (problem) { setLogoError(problem); return; }
+    setLogoBusy(true);
+    try {
+      saved(await uploadLogo(record.id, file));
+      toast.success("Logo saved");
+    } catch (e) {
+      setLogoError(`Could not upload: ${(e as Error).message}`);
+    } finally {
+      setLogoBusy(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  const dropLogo = async () => {
+    if (!record) return;
+    setLogoBusy(true);
+    setLogoError("");
+    try {
+      saved(await removeLogo(record.id));
+      toast.success("Logo removed");
+    } catch (e) {
+      setLogoError(`Could not remove: ${(e as Error).message}`);
+    } finally {
+      setLogoBusy(false);
+    }
+  };
 
   const save = async () => {
     if (!record || !form) return;
@@ -71,6 +121,25 @@ export default function Settings() {
                 <Label htmlFor="s-pub" className="cursor-pointer">Post the report to WordPress when a session is closed<span className="block text-xs text-gray-500 font-normal mt-0.5">Needs the site address and username above, and the WordPress application password in the server's env file.</span></Label>
               </div>
               <Button onClick={save} disabled={saving} className="bg-green-600 hover:bg-green-700">{saving ? "Saving..." : "Save settings"}</Button>
+            </CardContent>
+          </Card>
+        )}
+        {record && (
+          <Card className="bg-gray-900 border-gray-700 mt-6">
+            <CardHeader><CardTitle className="text-white text-lg">Group logo</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-400">Shown at the top of the menu. PNG, JPG or WebP, up to {MAX_LOGO_PX} x {MAX_LOGO_PX} pixels and 1 MB. A PNG with a transparent background works. It is scaled to the width of the menu (a small logo is enlarged, so a sharp {MAX_LOGO_PX}-pixel one looks best).</p>
+              {record.logo && (
+                <div className="w-52 rounded-lg bg-gray-900 border border-gray-800 px-3 py-3" aria-label="Logo preview">
+                  <img src={logoUrl(record)} alt="Current logo" className="w-full max-h-32 object-contain" />
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <input ref={fileInput} id="s-logo" type="file" accept={LOGO_TYPES.join(",")} className="sr-only" aria-label="Choose logo file" onChange={(e) => pickLogo(e.target.files?.[0])} />
+                <Button onClick={() => fileInput.current?.click()} disabled={logoBusy} className="bg-green-600 hover:bg-green-700">{logoBusy ? "Working..." : record.logo ? "Replace logo" : "Upload logo"}</Button>
+                {record.logo && <Button onClick={dropLogo} disabled={logoBusy} variant="outline" className="border-gray-600 text-gray-300 bg-transparent hover:bg-gray-800">Remove logo</Button>}
+              </div>
+              {logoError && <p role="alert" className="text-sm text-red-400">{logoError}</p>}
             </CardContent>
           </Card>
         )}
