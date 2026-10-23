@@ -157,7 +157,7 @@ export default function NetControl() {
           )}
 
           {session && (
-            <div className="flex items-center gap-3 sm:ml-auto flex-wrap">
+            <div className="flex items-center gap-3 sm:ml-auto sm:flex-1 sm:min-w-0 sm:justify-end flex-wrap">
               <TopicEditor session={session} onUpdated={setSession} />
               <span className="text-green-400 text-sm font-mono">Session Open — NCO: {session.nco_callsign}</span>
               <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full animate-pulse">● LIVE</span>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { clockText, msToNextSecond } from "@/lib/clock";
 
-// Zulu (UTC) and local time for the net control screen, ticking every second on the second.
+// Zulu (UTC) on the left and local time on the right, large and bold so the operator can read them at a glance,
+// ticking every second on the second.
 // "Local" is the time zone of the device the operator is using.
 export default function NetClock() {
   const [now, setNow] = useState(() => new Date());
@@ -19,9 +20,9 @@ export default function NetClock() {
 
   const { zulu, local } = clockText(now);
   return (
-    <div role="timer" aria-label="Current time, Zulu and local" className="bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 font-mono tabular-nums leading-tight">
-      <div className="text-green-400 text-base">{zulu}</div>
-      <div className="text-gray-400 text-sm">{local}</div>
+    <div role="timer" aria-label="Current time, Zulu and local" className="bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 font-mono font-bold tabular-nums leading-tight flex items-center gap-5 text-xl sm:text-2xl">
+      <span className="text-green-400">{zulu}</span>
+      <span className="text-white">{local}</span>
     </div>
   );
 }
