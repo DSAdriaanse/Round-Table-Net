@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CheckCircle2, Clock, UserPlus, VolumeX, Zap } from "lucide-react";
-import { createCheckIn, createStation, findStationsByCallsign, listCheckIns, updateCheckIn, updateStation } from "@/api";
+import { createCheckIn, createStation, findStationsByCallsign, isDuplicateStation, listCheckIns, updateCheckIn, updateStation } from "@/api";
 import type { CheckIn, CheckInStatus, NetSession, Station } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAllStations } from "@/hooks/useNetData";
 import { toast } from "@/lib/toast";
-import { finalStatus, makeRow, matchRow, typeCallsign } from "./pileupRow";
+import { finalStatus, makeRow, matchRow, rowsToLog, typeCallsign } from "./pileupRow";
 import type { Row } from "./pileupRow";
 
 const NO_SUGGESTIONS = { index: null as number | null, list: [] as Station[] };
@@ -64,8 +64,29 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
     setRows((prev) => prev.map((r) => (r.callsign.trim() ? r : { ...r, status })));
   };
 
+  // The roster entry for a callsign that was not on the roster when typed: reactivate it if it is there but
+  // inactive, else add it as a guest waiting for review. Another operator, or another browser tab, may have added
+  // the same callsign a moment ago; the server then refuses the second add, and the one that exists is used.
+  const guestStation = async (row: Row): Promise<Station> => {
+    const known = await findStationsByCallsign(netId, row.callsign);
+    const inactive = known.find((s) => !s.active);
+    if (inactive) return updateStation(inactive.id, { active: true, consecutive_absences: 0, needs_review: false });
+    if (known.length) return known[0];
+    try {
+      return await createStation({
+        callsign: row.callsign, name: row.name || row.callsign, city: row.location || "", state: row.state || "",
+        net_id: netId, active: true, consecutive_absences: 0, needs_review: true,
+      });
+    } catch (err) {
+      if (!isDuplicateStation(err)) throw err;
+      const now = await findStationsByCallsign(netId, row.callsign);
+      if (!now.length) throw err;
+      return now[0];
+    }
+  };
+
   const submit = async () => {
-    const toLog = rows.filter((r) => r.callsign.trim() && (r.matched || r.isGuest));
+    const { rows: toLog, merged } = rowsToLog(rows);
     if (!toLog.length) return;
     setSaving(true);
 
@@ -88,18 +109,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
               row.station = await updateStation(row.station.id, { active: true, consecutive_absences: 0 });
             }
           } else if (row.isGuest && !row.matched) {
-            const known = await findStationsByCallsign(netId, row.callsign);
-            const inactive = known.find((s) => !s.active);
-            if (inactive) {
-              row.station = await updateStation(inactive.id, { active: true, consecutive_absences: 0, needs_review: false });
-            } else if (!known.length) {
-              row.station = await createStation({
-                callsign: row.callsign, name: row.name || row.callsign, city: row.location || "", state: row.state || "",
-                net_id: netId, active: true, consecutive_absences: 0, needs_review: true,
-              });
-            } else {
-              row.station = known[0];
-            }
+            row.station = await guestStation(row);
           }
         }),
       );
@@ -139,7 +149,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
 
       setLogged((prev) => [...new Set([...prev, ...toLog.map((r) => r.callsign)])]);
       setRows(Array.from({ length: 5 }, () => makeRow(defaultStatus)));
-      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}`);
+      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}${merged ? ` (${merged} repeated callsign${merged > 1 ? "s" : ""} merged)` : ""}`);
       setTimeout(onUpdate, 100);
     } catch (err) {
       toast.error(`Failed to log pileup: ${(err as Error).message || err}`);
@@ -148,7 +158,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
     }
   };
 
-  const loggable = rows.filter((r) => r.callsign.trim() && (r.matched || r.isGuest)).length;
+  const loggable = rowsToLog(rows).rows.length;
 
   const statusButtons: { status: CheckInStatus; icon: typeof Clock; title: string; on: string; hover: string }[] = [
     { status: "checked_in", icon: CheckCircle2, title: "Checked In", on: "bg-green-600", hover: "hover:bg-green-700" },

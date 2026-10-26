@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, ClipboardPaste, MapPin, Pencil, Plus, Search, Trash2, Users, XSquare } from "lucide-react";
-import { GEOCODE_DELAY_MS, createStation, deleteStation, deleteStations, geocode, updateStation } from "@/api";
+import { GEOCODE_DELAY_MS, createStation, deleteStation, deleteStations, geocode, isDuplicateStation, updateStation } from "@/api";
 import type { Station } from "@/api";
 import { useNet } from "@/components/NetContext";
 import { Badge } from "@/components/ui/badge";
@@ -111,7 +111,7 @@ export default function RosterManager() {
       setOpen(false);
       reload();
     } catch (e) {
-      toast.error(`Could not save the station: ${(e as Error).message}`);
+      toast.error(isDuplicateStation(e) ? `${callsign} is already on this net's roster.` : `Could not save the station: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
