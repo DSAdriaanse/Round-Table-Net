@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, LogOut } from "lucide-react";
+import { AlertTriangle, LogOut, Trash2 } from "lucide-react";
 import { closeSession, getSettings, listAnnouncements, publishReport } from "@/api";
 import type { Announcement, CheckIn, Net, NetSession, Station } from "@/api";
 import { Button } from "@/components/ui/button";
@@ -7,15 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/lib/toast";
 import { parseShortcodes } from "@/utils/shortcodes";
+import DiscardSessionDialog from "./DiscardSessionDialog";
 
 // The Close Session tab: the closing script to read aloud, the technical-difficulty
 // switch, the Close button, and a five-column summary of who checked in.
 // The close itself happens on the server (POST /api/rt/session/close).
-export default function CloseSessionPanel({ session, net, checkIns, rosterStations, onClose }: {
+// The rarely-wanted "discard" lives at the very bottom, out of the way of the real close.
+export default function CloseSessionPanel({ session, net, checkIns, rosterStations, onClose, onDiscard }: {
   session: NetSession; net: Net | undefined; checkIns: CheckIn[]; rosterStations: Station[]; onClose: () => void;
+  /** Deletes the session; resolves true when it worked. */
+  onDiscard: () => Promise<boolean>;
 }) {
   const [technicalDifficulty, setTechnicalDifficulty] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
@@ -76,12 +81,12 @@ export default function CloseSessionPanel({ session, net, checkIns, rosterStatio
   return (
     <Card className="bg-gray-900 border-gray-700">
       <CardHeader>
-        <CardTitle className="text-red-400">Close Session</CardTitle>
+        <CardTitle className="text-green-400">Close Session</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {net?.closing && (
-          <div className="bg-gradient-to-br from-red-900/30 to-gray-800 border-2 border-red-600 rounded-lg p-5">
-            <p className="text-red-300 text-xs uppercase tracking-widest mb-3 font-bold">📡 Net Closing Statement — Read Aloud to Close</p>
+          <div className="bg-gradient-to-br from-green-900/30 to-gray-800 border-2 border-green-600 rounded-lg p-5">
+            <p className="text-green-300 text-xs uppercase tracking-widest mb-3 font-bold">📡 Net Closing Statement — Read Aloud to Close</p>
             <div className="text-white text-[15px] rich-text max-w-none" dangerouslySetInnerHTML={{ __html: closingHtml }} />
           </div>
         )}
@@ -105,7 +110,7 @@ export default function CloseSessionPanel({ session, net, checkIns, rosterStatio
             : "This will close the session and mark it for processing. The roster will be updated based on attendance."}
         </p>
 
-        <Button onClick={doClose} disabled={loading} className="bg-red-700 hover:bg-red-800 w-full">
+        <Button id="close-session-button" onClick={doClose} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white w-full">
           <LogOut className="w-4 h-4 mr-2" />
           {loading ? "Closing..." : "Close Session"}
         </Button>
@@ -132,7 +137,26 @@ export default function CloseSessionPanel({ session, net, checkIns, rosterStatio
             );
           })}
         </div>
+
+        <div className="pt-4 mt-2 border-t border-gray-800 flex justify-end">
+          <Button
+            onClick={() => setDiscardOpen(true)}
+            variant="ghost"
+            size="sm"
+            className="text-gray-500 hover:text-red-400 hover:bg-red-900/20 h-7 text-xs"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1" />Discard session (testing only)
+          </Button>
+        </div>
       </CardContent>
+
+      <DiscardSessionDialog
+        open={discardOpen}
+        onOpenChange={setDiscardOpen}
+        checkInCount={checkIns.length}
+        onDiscard={onDiscard}
+        onCloseProperly={() => document.getElementById("close-session-button")?.focus()}
+      />
     </Card>
   );
 }
