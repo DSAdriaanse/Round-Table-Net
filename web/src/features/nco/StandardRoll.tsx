@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
-import { useActiveRoster, useAllStations } from "@/hooks/useNetData";
-import { isInactive } from "@/lib/stationState";
+import { useActiveRoster, useAllStations, useIsInactive } from "@/hooks/useNetData";
 import type { NetSession } from "@/api";
 
 type Filter = "all" | "hide_early_short" | "guests" | "not_heard";
@@ -23,6 +22,7 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const queryClient = useQueryClient();
+  const isInactive = useIsInactive(netId);
 
   // Shared roster caches, also used by NetControl, SessionDashboard and the Pileup Logger.
   const { data: activeStations = [] } = useActiveRoster(netId);

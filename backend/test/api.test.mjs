@@ -35,10 +35,10 @@ const list = async (col, filter, token = S.su) => {
   return r.json.items;
 };
 
-async function makeNet(name) {
+async function makeNet(name, fields = {}) {
   const r = await nco("/api/collections/nets/records", {
     method: "POST",
-    body: { name: `${name} ${run}`, day_of_week: "Sunday", time: "5:00 PM", frequency: "462.600", preamble: "<p>Secret script</p>", closing: "<p>Bye</p>" },
+    body: { name: `${name} ${run}`, day_of_week: "Sunday", time: "5:00 PM", frequency: "462.600", preamble: "<p>Secret script</p>", closing: "<p>Bye</p>", ...fields },
   });
   assert.equal(r.status, 200, JSON.stringify(r.json));
   return r.json;
@@ -384,6 +384,81 @@ test("close: overlapping closes count a session only once", async () => {
     nco("/api/rt/session/close", { method: "POST", body: { session_id: ses.id } })));
   assert.equal(results.filter((r) => r.status === 200).length, 1, JSON.stringify(results.map((r) => r.status)));
   assert.equal((await station(gone.id)).consecutive_absences, 1);
+});
+
+// ------------------------------------------------- absence limit, set per net
+
+// Opens a session with nobody checked in except `attendees`, closes it, and returns the stations.
+async function closeWith(net, stations, attendees = []) {
+  const ses = await openSession(net);
+  for (const cs of attendees) await addCheckIn(ses, net, cs, "checked_in");
+  const close = await nco("/api/rt/session/close", { method: "POST", body: { session_id: ses.id } });
+  assert.equal(close.status, 200, JSON.stringify(close.json));
+  const out = {};
+  for (const [k, st] of Object.entries(stations)) out[k] = await station(st.id);
+  return { close: close.json, st: out };
+}
+
+test("a net made without a limit gets 3; a chosen limit is kept; out-of-range is refused", async () => {
+  assert.equal((await makeNet("Default Limit Net")).max_absences, 3);
+  assert.equal((await makeNet("Five Limit Net", { max_absences: 5 })).max_absences, 5);
+  assert.equal((await makeNet("Zero Limit Net", { max_absences: 0 })).max_absences, 0, "0 is a real choice, not 'unset'");
+  for (const bad of [-1, 53, 2.5]) {
+    const r = await nco("/api/collections/nets/records", {
+      method: "POST", body: { name: `Bad Limit ${run}`, day_of_week: "Sunday", time: "5:00 PM", max_absences: bad },
+    });
+    assert.equal(r.status, 400, `max_absences ${bad} should be refused`);
+  }
+});
+
+test("absence limit 2: a second miss makes a station inactive", async () => {
+  const net = await makeNet("Limit Two Net", { max_absences: 2 });
+  const one = await makeStation(net, "K1ONE", { consecutive_absences: 1 });
+  const zero = await makeStation(net, "K1ZERO");
+  const { st } = await closeWith(net, { one, zero });
+  assert.equal(st.one.consecutive_absences, 2);
+  assert.equal(st.one.active, false);
+  assert.equal(st.zero.consecutive_absences, 1);
+  assert.equal(st.zero.active, true);
+});
+
+test("absence limit 5: a station with 3 misses is still active after a 4th", async () => {
+  const net = await makeNet("Limit Five Net", { max_absences: 5 });
+  const three = await makeStation(net, "K1THREE", { consecutive_absences: 3 });
+  const { st } = await closeWith(net, { three });
+  assert.equal(st.three.consecutive_absences, 4);
+  assert.equal(st.three.active, true);
+});
+
+test("absence limit 0: nobody is dropped, absences are not counted, stations are left alone", async () => {
+  const net = await makeNet("Limit Zero Net", { max_absences: 0 });
+  const gone = await makeStation(net, "K1GONE", { consecutive_absences: 2 });
+  const here = await makeStation(net, "K1HERE", { consecutive_absences: 2 });
+  const fresh = await makeStation(net, "K1FRESH");
+  for (let i = 0; i < 5; i++) {
+    const { close, st } = await closeWith(net, { gone, here, fresh }, ["K1HERE"]);
+    assert.equal(close.status, "closed");
+    assert.equal(close.stations_updated, 0);
+    assert.equal(st.gone.active, true);
+    assert.equal(st.gone.consecutive_absences, 2);
+    assert.equal(st.here.consecutive_absences, 2);
+    assert.equal(st.fresh.consecutive_absences, 0);
+    assert.equal(st.fresh.active, true);
+  }
+  const done = (await list("net_sessions", `net_id = "${net.id}"`));
+  assert.equal(done.length, 5);
+  assert.ok(done.every((x) => x.status === "closed" && x.roster_updated === true));
+});
+
+test("changing a net's limit applies from the next session", async () => {
+  const net = await makeNet("Limit Change Net", { max_absences: 0 });
+  const st0 = await makeStation(net, "K1CHG", { consecutive_absences: 1 });
+  assert.equal((await closeWith(net, { st0 })).st.st0.active, true);
+  const up = await nco(`/api/collections/nets/records/${net.id}`, { method: "PATCH", body: { max_absences: 2 } });
+  assert.equal(up.status, 200, JSON.stringify(up.json));
+  const after = await closeWith(net, { st0 });
+  assert.equal(after.st.st0.consecutive_absences, 2);
+  assert.equal(after.st.st0.active, false);
 });
 
 test("the manual process route and the 15-minute job are gone", async () => {

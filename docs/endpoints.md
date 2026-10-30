@@ -26,7 +26,7 @@ Behind Nginx the address comes from `X-Real-IP` (`TRUST_PROXY_HEADER`), so keep 
 ## Roster update
 
 The close route updates the roster itself. There is no scheduled job. At server start, any session an older version left `pending` is finished once (`bootstrap.pb.js`).
-Roster rules: attended (checked in, short time, early) resets absences; a miss adds one; three in a row makes the station inactive;
+Roster rules: attended (checked in, short time, early) resets absences; a miss adds one; reaching the net's `max_absences` in a row makes the station inactive (set per net, default 3; `0` turns the rule off: absences are not counted and no one is dropped);
 `permanent_attendance` and `needs_review` stations are never dropped; technical difficulty skips the update.
 Times use the server's time zone (`TZ` in the env file, default in `.env.example` is `America/Phoenix`).
 

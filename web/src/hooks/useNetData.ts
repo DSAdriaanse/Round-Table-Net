@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listCheckIns, listStations, watchCheckIns, watchStations } from "@/api";
 import type { CheckIn, Station } from "@/api";
+import { useNet } from "@/components/NetContext";
+import { DEFAULT_MAX_ABSENCES, isInactive } from "@/lib/stationState";
 
 // Shared, live-updating copies of the roster and of a session's check-ins. Every screen
 // that asks for the same thing shares one cache entry, and the server's live updates
@@ -44,6 +46,13 @@ function useStationSubscription(netId: string | undefined, queryKey: unknown[], 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [netId, queryClient]);
+}
+
+/** "Is this station inactive?" using the absence limit of the given net (see lib/stationState.ts). */
+export function useIsInactive(netId: string | undefined) {
+  const { nets } = useNet();
+  const limit = nets.find((n) => n.id === netId)?.max_absences ?? DEFAULT_MAX_ABSENCES;
+  return (s: { active: boolean; consecutive_absences: number }) => isInactive(s, limit);
 }
 
 /** Active roster for a net. */
