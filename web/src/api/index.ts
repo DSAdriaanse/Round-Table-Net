@@ -7,7 +7,7 @@
 //   announcements.ts announcements for the opening
 //   settings.ts      app settings
 //   public.ts        the no-sign-in routes for the public check-in page
-//   chat.ts          team chat through Slack (status and test message)
+//   chat.ts          team chat through Slack (status, test message, the thread's messages)
 //   auth.ts          PIN sign-in and sign-out
 //   pb               the raw PocketBase client (rarely needed)
 // To add something: put a named function in the matching file and export it here.

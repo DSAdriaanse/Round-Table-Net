@@ -25,6 +25,7 @@ Where things are and where to look when you want to change something.
 |---|---|
 | `api/` | The only door to the server: one typed file per feature, `types.ts` (matches the schema) and `records.ts` (small helpers). Screens import from `@/api` only. |
 | `features/<name>/` | One folder per area: `auth`, `nco` (net control), `checkin` (public), `roster`, `nets`, `history`, `announcements`, `dashboard`, `guide`, `settings`. |
+| `features/chat/` | The chat bubble (`ChatWidget.tsx`) and its live message list (`useChat.ts`); the counting rules are in `lib/chatState.ts`. |
 | `components/` | Layout and menu (`Layout.tsx`), net choice (`NetContext`, `NetSelectionGate`), shared pieces (`RichTextEditor`, `StationMap`), `ui/` (shadcn). |
 | `hooks/useNetData.ts` | Live roster and check-in caches fed by realtime. |
 | `utils/shortcodes.ts` | `[/TOPIC]` and `[/ANNOUNCEMENTS]` in net scripts. |

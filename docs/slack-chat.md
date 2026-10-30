@@ -61,6 +61,14 @@ then `systemctl restart round-table-net`. The secrets are never stored in the da
 3. In Round Table Net, **Manage Nets**, edit the net, switch **Team chat with Slack** on, paste the ID and press **Send test message**.
    If the test arrives in Slack, save.
 
+## The chat bubble
+
+While a net with team chat on has a session open, a green **Chat with us** bubble sits in the bottom-right corner of every screen.
+It shows a red badge with the number of new replies from Slack, and opens a panel with the session's thread:
+Slack people on the left with their Slack name, the operator's own messages on the right with the NCO callsign.
+The bell in the panel mutes it: no badge and no pulse (messages are still collected). Mute is remembered in that browser.
+The bubble is hidden when printing and goes away when the session closes.
+
 ## What it does and does not do
 
 - Chat is only available while a session is open. Opening a session posts the thread's first message; closing posts "Net closed".
