@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Radio, Trash2 } from "lucide-react";
-import { createNet, deleteNet, listNets, updateNet } from "@/api";
+import { createNet, deleteNet, getSlackStatus, listNets, sendSlackTest, updateNet } from "@/api";
 import type { DayOfWeek, Net } from "@/api";
 import { useNet } from "@/components/NetContext";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -9,12 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { chatProblem, tidyChannelId } from "@/lib/slackChannel";
 import { toast } from "@/lib/toast";
 
 const DAYS: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-type Form = Pick<Net, "name" | "day_of_week" | "time" | "frequency" | "preamble" | "closing"> & { max_absences: string };
-const EMPTY: Form = { name: "", day_of_week: "Monday", time: "", frequency: "", preamble: "", closing: "", max_absences: "3" };
+type Form = Pick<Net, "name" | "day_of_week" | "time" | "frequency" | "preamble" | "closing"> & { max_absences: string; slack_enabled: boolean; slack_channel: string };
+const EMPTY: Form = { name: "", day_of_week: "Monday", time: "", frequency: "", preamble: "", closing: "", max_absences: "3", slack_enabled: false, slack_channel: "" };
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -25,13 +27,17 @@ export default function NetsManager() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Net | null>(null);
   const [form, setForm] = useState<Form>(EMPTY);
+  // null while we find out whether the server has Slack set up.
+  const [slackReady, setSlackReady] = useState<boolean | null>(null);
+  const [testing, setTesting] = useState(false);
 
   const load = () => listNets().then(setNets, (e) => toast.error(`Could not load nets: ${e.message}`));
   useEffect(() => { load(); }, []);
+  useEffect(() => { getSlackStatus().then((s) => setSlackReady(s.configured), () => setSlackReady(false)); }, []);
 
   const openNew = () => { setForm(EMPTY); setEditing(null); setOpen(true); };
   const openEdit = (n: Net) => {
-    setForm({ name: n.name, day_of_week: n.day_of_week, time: n.time, frequency: n.frequency, preamble: n.preamble, closing: n.closing, max_absences: String(n.max_absences ?? 3) });
+    setForm({ name: n.name, day_of_week: n.day_of_week, time: n.time, frequency: n.frequency, preamble: n.preamble, closing: n.closing, max_absences: String(n.max_absences ?? 3), slack_enabled: !!n.slack_enabled, slack_channel: n.slack_channel ?? "" });
     setEditing(n);
     setOpen(true);
   };
@@ -42,7 +48,9 @@ export default function NetsManager() {
     if (form.max_absences.trim() === "" || !Number.isInteger(maxAbsences) || maxAbsences < 0 || maxAbsences > 52) {
       return toast.error("Absences before a station goes inactive must be a whole number from 0 to 52 (0 = never).");
     }
-    const data = { ...form, max_absences: maxAbsences };
+    const problem = chatProblem(form.slack_enabled, form.slack_channel);
+    if (problem) return toast.error(problem);
+    const data = { ...form, max_absences: maxAbsences, slack_channel: tidyChannelId(form.slack_channel) };
     try {
       if (editing) await updateNet(editing.id, data);
       else await createNet(data);
@@ -51,6 +59,20 @@ export default function NetsManager() {
       refreshNets();
     } catch (e) {
       toast.error(`Could not save the net: ${(e as Error).message}`);
+    }
+  };
+
+  const testSlack = async () => {
+    const problem = chatProblem(true, form.slack_channel);
+    if (problem) return toast.error(problem);
+    setTesting(true);
+    try {
+      await sendSlackTest(tidyChannelId(form.slack_channel));
+      toast.success("Test message sent. Check the Slack channel.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -89,6 +111,7 @@ export default function NetsManager() {
               <CardContent className="text-gray-400 text-sm space-y-1">
                 <p>{n.day_of_week}s at {n.time}{n.frequency ? ` · ${n.frequency}` : ""}</p>
                 <p className="text-xs text-gray-500">{n.max_absences === 0 ? "Stations are never dropped for absences" : `Inactive after ${n.max_absences ?? 3} absences in a row`}</p>
+                <p className="text-xs text-gray-500">{n.slack_enabled ? `Team chat on (Slack channel ${n.slack_channel})` : "Team chat off"}</p>
                 {n.preamble && <p className="text-xs text-gray-600 truncate">Preamble: {stripHtml(n.preamble).substring(0, 80)}...</p>}
               </CardContent>
             </Card>
@@ -119,6 +142,26 @@ export default function NetsManager() {
               <Label htmlFor="net-max-absences">Absences before a station goes inactive</Label>
               <Input id="net-max-absences" type="number" inputMode="numeric" min={0} max={52} step={1} value={form.max_absences} onChange={(e) => setForm({ ...form, max_absences: e.target.value })} className="bg-gray-800 border-gray-600 text-white mt-1 w-24" />
               <p className="text-xs text-gray-500 mt-1">Sessions in a row a station can miss before it is made inactive. 3 is the default. 0 turns this off: no one is dropped and absences are not counted.</p>
+            </div>
+            <div className="rounded-md border border-gray-700 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="net-slack-enabled">Team chat with Slack</Label>
+                <Switch id="net-slack-enabled" checked={form.slack_enabled} disabled={slackReady !== true && !form.slack_enabled} onCheckedChange={(v) => setForm({ ...form, slack_enabled: v })} />
+              </div>
+              <p className="text-xs text-gray-500">
+                {slackReady === false
+                  ? "Slack is not set up on this server yet, so this cannot be turned on. See docs/slack-chat.md."
+                  : "While this net is running, the operator gets a chat bubble and each session has its own thread in the Slack channel below."}
+              </p>
+              {form.slack_enabled && (
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="flex-1 min-w-[12rem]">
+                    <Label htmlFor="net-slack-channel">Slack channel ID</Label>
+                    <Input id="net-slack-channel" value={form.slack_channel} onChange={(e) => setForm({ ...form, slack_channel: e.target.value })} placeholder="C0123ABCD" className="bg-gray-800 border-gray-600 text-white mt-1" />
+                  </div>
+                  <Button type="button" variant="outline" onClick={testSlack} disabled={testing || slackReady !== true} className="border-gray-600 text-gray-200">{testing ? "Sending..." : "Send test message"}</Button>
+                </div>
+              )}
             </div>
             <div>
               <Label>Preamble</Label>

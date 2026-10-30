@@ -6,6 +6,7 @@
 // The server under test must be started with the mock service URLs (see README in this folder).
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 
 const PB = process.env.PB_URL || "http://127.0.0.1:8090";
 const MOCK = process.env.MOCK_URL || "http://127.0.0.1:9100";
@@ -468,6 +469,210 @@ test("the manual process route and the 15-minute job are gone", async () => {
   assert.equal(r.status, 404, "the manual process route is gone");
   const cron = await su("/api/crons/processPendingSessions", { method: "POST" });
   assert.equal(cron.status, 404, "the 15-minute job is gone");
+});
+
+// ------------------------------------------------------------ Slack team chat
+
+const SLACK_SECRET = process.env.SLACK_SIGNING_SECRET || "test-signing-secret";
+const CHAN = "CTESTCHAN1";
+
+// A request the way Slack sends it: the exact body, signed with the signing secret.
+async function slackEvent(payload, { secret = SLACK_SECRET, ts = Math.floor(Date.now() / 1000) } = {}) {
+  const raw = JSON.stringify(payload);
+  const sig = "v0=" + createHmac("sha256", secret).update(`v0:${ts}:${raw}`).digest("hex");
+  const res = await fetch(PB + "/api/rt/slack/events", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-slack-request-timestamp": String(ts), "x-slack-signature": sig },
+    body: raw,
+  });
+  let json = null; try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+}
+const slackCalls = async (method) => (await mockCalls()).filter((c) => c.path === `/slack/${method}`);
+const chatNet = (label, fields = {}) => makeNet(label, { slack_enabled: true, slack_channel: CHAN, ...fields });
+const messages = (sessionId) => list("chat_messages", `session_id = "${sessionId}"`);
+const reply = (thread_ts, ts, text, extra = {}) => ({
+  type: "event_callback",
+  event: { type: "message", channel: CHAN, user: "U111", text, ts, thread_ts, ...extra },
+});
+
+test("slack: status and the test message need a sign-in; the test reports Slack's errors in plain words", async () => {
+  assert.equal((await api("/api/rt/slack/status")).status, 401);
+  assert.equal((await api("/api/rt/slack/test", { method: "POST", body: { channel: CHAN } })).status, 401);
+  assert.deepEqual((await nco("/api/rt/slack/status")).json, { configured: true });
+
+  await mockReset();
+  const ok = await nco("/api/rt/slack/test", { method: "POST", body: { channel: CHAN } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  const posted = (await slackCalls("chat.postMessage"))[0];
+  assert.equal(posted.body.channel, CHAN);
+  assert.equal(posted.headers.authorization, "Bearer xoxb-test");
+
+  const notIn = await nco("/api/rt/slack/test", { method: "POST", body: { channel: "CNOTIN0000" } });
+  assert.equal(notIn.status, 400);
+  assert.match(notIn.json.message, /\/invite/);
+  assert.match((await nco("/api/rt/slack/test", { method: "POST", body: { channel: "CMISSING00" } })).json.message, /channel ID/);
+  const named = await nco("/api/rt/slack/test", { method: "POST", body: { channel: "#general" } });
+  assert.equal(named.status, 400);
+  assert.match(named.json.message, /channel ID/);
+});
+
+test("slack: a net starts with chat off and opening its session posts nothing", async () => {
+  const net = await makeNet("Chat Off Net");
+  assert.equal(net.slack_enabled, false);
+  assert.equal(net.slack_channel, "");
+  await mockReset();
+  const ses = await openSession(net);
+  assert.equal((await slackCalls("chat.postMessage")).length, 0);
+  const sent = await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "hello" } });
+  assert.equal(sent.status, 409);
+  assert.match(sent.json.message, /not turned on/);
+});
+
+test("slack: opening a session on a chat net starts its thread, once", async () => {
+  const net = await chatNet("Chat Thread Net");
+  await mockReset();
+  const ses = await openSession(net, { topic: "Antenna <b>tips</b>" });
+  const posts = await slackCalls("chat.postMessage");
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].body.channel, CHAN);
+  assert.equal(posts[0].body.thread_ts, undefined, "the first message starts the thread");
+  assert.match(posts[0].body.text, /Chat Thread Net/);
+  assert.match(posts[0].body.text, /W1NCO/);
+  assert.match(posts[0].body.text, /Antenna &lt;b&gt;tips&lt;\/b&gt;/, "the topic is escaped");
+
+  const after = (await nco(`/api/collections/net_sessions/records/${ses.id}`)).json;
+  assert.ok(after.slack_thread_ts);
+  assert.equal(after.slack_channel, CHAN);
+
+  await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "one" } });
+  await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "two" } });
+  const all = await slackCalls("chat.postMessage");
+  assert.equal(all.length, 3, "one thread start and two replies, no second thread");
+  assert.equal(all[1].body.thread_ts, after.slack_thread_ts);
+});
+
+test("slack: sending posts into the thread as the NCO, escapes mentions, and stores the message", async () => {
+  const net = await chatNet("Chat Send Net");
+  const ses = await openSession(net);
+  const thread = (await nco(`/api/collections/net_sessions/records/${ses.id}`)).json.slack_thread_ts;
+  await mockReset();
+
+  const r = await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "  Hi <!channel> & <@U123>  " } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const posted = (await slackCalls("chat.postMessage"))[0].body;
+  assert.equal(posted.channel, CHAN);
+  assert.equal(posted.thread_ts, thread);
+  assert.equal(posted.text, "*W1NCO (NCO):* Hi &lt;!channel&gt; &amp; &lt;@U123&gt;", "typed mentions cannot ping anyone");
+
+  const [m] = await messages(ses.id);
+  assert.equal(m.source, "nco");
+  assert.equal(m.author, "W1NCO (NCO)");
+  assert.equal(m.text, "Hi <!channel> & <@U123>", "stored as typed, trimmed");
+  assert.ok(m.slack_ts);
+
+  assert.equal((await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "   " } })).status, 400);
+  assert.equal((await api("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "x" } })).status, 401);
+  assert.equal((await nco("/api/rt/chat/send", { method: "POST", body: { session_id: "nonexistent", text: "x" } })).status, 404);
+});
+
+test("slack: Slack's refusal reaches the operator as a plain message and nothing is stored", async () => {
+  const net = await chatNet("Chat Fail Net", { slack_channel: "CNOTIN0000" });
+  const ses = await openSession(net); // the thread cannot start; that is logged, the session still opens
+  assert.equal((await nco(`/api/collections/net_sessions/records/${ses.id}`)).json.slack_thread_ts, "");
+  const r = await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "hello" } });
+  assert.equal(r.status, 502);
+  assert.match(r.json.message, /not in that channel/);
+  assert.equal((await messages(ses.id)).length, 0);
+});
+
+test("slack: events are refused without Slack's signature, or when the request is old", async () => {
+  const body = { type: "url_verification", challenge: "abc123" };
+  assert.equal((await slackEvent(body, { secret: "wrong-secret" })).status, 401);
+  assert.equal((await slackEvent(body, { ts: Math.floor(Date.now() / 1000) - 3600 })).status, 400);
+  const ok = await slackEvent(body);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.challenge, "abc123");
+  const unsigned = await fetch(PB + "/api/rt/slack/events", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  assert.equal(unsigned.status, 400);
+});
+
+test("slack: a reply in the session's thread is stored with the sender's name and readable text", async () => {
+  const net = await chatNet("Chat Inbound Net");
+  const ses = await openSession(net);
+  const thread = (await nco(`/api/collections/net_sessions/records/${ses.id}`)).json.slack_thread_ts;
+  const text = "See <https://example.org/x|the page> and <https://example.org/y> with <@U9|bob> in <#C1|ops> &amp; &lt;ok&gt;";
+  const r = await slackEvent(reply(thread, "1800000001.000100", text));
+  assert.equal(r.status, 200);
+  const [m] = await messages(ses.id);
+  assert.equal(m.source, "slack");
+  assert.equal(m.author, "Todd");
+  assert.equal(m.text, "See the page and https://example.org/y with @bob in #ops & <ok>");
+  assert.equal(m.slack_ts, "1800000001.000100");
+
+  // Slack sends the same event again when it thinks we were slow: stored once.
+  await slackEvent(reply(thread, "1800000001.000100", text), { ts: Math.floor(Date.now() / 1000) });
+  assert.equal((await messages(ses.id)).length, 1);
+});
+
+test("slack: events that are not a person's reply in a session thread are ignored", async () => {
+  const net = await chatNet("Chat Ignore Net");
+  const ses = await openSession(net);
+  const thread = (await nco(`/api/collections/net_sessions/records/${ses.id}`)).json.slack_thread_ts;
+  const ignored = [
+    reply(thread, "1800000010.000100", "from a bot", { bot_id: "B1" }),
+    reply(thread, "1800000011.000100", "an edit", { subtype: "message_changed" }),
+    reply("1799999999.000100", "1800000012.000100", "some other thread"),
+    reply(undefined, "1800000013.000100", "top level chatter"),
+    reply(thread, thread, "the parent itself"),
+    reply(thread, "1800000014.000100", "wrong channel", { channel: "COTHERCHAN" }),
+    { type: "event_callback", event: { type: "reaction_added", user: "U1" } },
+  ];
+  for (const p of ignored) assert.equal((await slackEvent(p)).status, 200);
+  assert.equal((await messages(ses.id)).length, 0);
+
+  // Turn chat off for the net: even a genuine reply is dropped.
+  await nco(`/api/collections/nets/records/${net.id}`, { method: "PATCH", body: { slack_enabled: false } });
+  await slackEvent(reply(thread, "1800000015.000100", "after it was turned off"));
+  assert.equal((await messages(ses.id)).length, 0);
+});
+
+test("slack: closing the net tells the thread; chat is then closed and its messages go with the session", async () => {
+  const net = await chatNet("Chat Close Net");
+  const ses = await openSession(net);
+  const thread = (await nco(`/api/collections/net_sessions/records/${ses.id}`)).json.slack_thread_ts;
+  await addCheckIn(ses, net, "K1AAA", "checked_in");
+  await addCheckIn(ses, net, "K1BBB", "early");
+  await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "welcome" } });
+  await mockReset();
+
+  const close = await nco("/api/rt/session/close", { method: "POST", body: { session_id: ses.id } });
+  assert.equal(close.status, 200, JSON.stringify(close.json));
+  const posted = (await slackCalls("chat.postMessage"))[0].body;
+  assert.equal(posted.thread_ts, thread);
+  assert.match(posted.text, /Net closed: 2 check-ins/);
+
+  const late = await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "too late" } });
+  assert.equal(late.status, 409);
+
+  assert.equal((await messages(ses.id)).length, 1);
+  assert.equal((await nco(`/api/collections/net_sessions/records/${ses.id}`, { method: "DELETE" })).status, 204);
+  assert.equal((await messages(ses.id)).length, 0, "messages are deleted with their session");
+});
+
+test("slack: operators can read chat messages but only the server writes them", async () => {
+  const net = await chatNet("Chat Rules Net");
+  const ses = await openSession(net);
+  await nco("/api/rt/chat/send", { method: "POST", body: { session_id: ses.id, text: "hello" } });
+  const read = await nco(`/api/collections/chat_messages/records?filter=${encodeURIComponent(`session_id = "${ses.id}"`)}`);
+  assert.equal(read.status, 200);
+  assert.equal(read.json.items.length, 1);
+  assert.equal((await api(`/api/collections/chat_messages/records`)).status === 200 && (await api(`/api/collections/chat_messages/records`)).json.items.length, 0, "signed-out visitors see nothing");
+  const make = await nco("/api/collections/chat_messages/records", { method: "POST", body: { session_id: ses.id, source: "nco", text: "forged" } });
+  assert.ok(make.status === 403 || make.status === 400, "creating through the API is refused, got " + make.status);
+  const msg = read.json.items[0];
+  assert.ok([403, 404].includes((await nco(`/api/collections/chat_messages/records/${msg.id}`, { method: "DELETE" })).status));
+  assert.ok([403, 404].includes((await nco(`/api/collections/chat_messages/records/${msg.id}`, { method: "PATCH", body: { text: "edited" } })).status));
 });
 
 // ------------------------------------------------------------------ publish

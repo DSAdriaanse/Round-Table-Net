@@ -44,10 +44,13 @@ onBootstrap((e) => {
   const existing = u.env("RATE_LIMIT_DEFAULTS", "on") === "off" ? [] : (s.rateLimits.rules || []);
   for (let i = 0; i < existing.length; i++) {
     const label = existing[i].label;
-    if (label.indexOf("/api/rt/auth/") !== 0 && label.indexOf("/api/rt/public/") !== 0) keep.push(existing[i]);
+    if (["/api/rt/auth/", "/api/rt/public/", "/api/rt/chat/", "/api/rt/slack/"].every((p) => label.indexOf(p) !== 0)) keep.push(existing[i]);
   }
   keep.push({ label: "/api/rt/auth/", maxRequests: pinLimit, duration: 60 });
   keep.push({ label: "/api/rt/public/", maxRequests: publicLimit, duration: 60 });
+  // Team chat: operators sending messages, and Slack delivering events (all from Slack's own addresses).
+  keep.push({ label: "/api/rt/chat/", maxRequests: 60, duration: 60 });
+  keep.push({ label: "/api/rt/slack/", maxRequests: 600, duration: 60 });
   s.rateLimits.rules = keep;
   s.rateLimits.enabled = true;
 

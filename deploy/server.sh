@@ -135,6 +135,24 @@ install_pocketbase() {
   rm -rf "$tmp"
 }
 
+# A release can add settings to .env.example (for example the Slack keys). The env file on an existing
+# server was copied at install time and is never replaced, so add any key it lacks, with its comment, as
+# an empty value. Only keys that are empty in .env.example (secrets and optional settings) are added; keys
+# with a default (port, time zone, URL) are left to the installer. Existing values are never touched, and a
+# key that is present, even commented out like #PIN_RATE_LIMIT=, is left alone.
+add_missing_env_keys() {
+  [ -f "$ENV_FILE" ] && [ -f "$STAGE/.env.example" ] || return 0
+  local added; added=$(awk -v envfile="$ENV_FILE" '
+    BEGIN { while ((getline line < envfile) > 0) { k = line; sub(/^#/, "", k); sub(/=.*/, "", k); if (line ~ /^#?[A-Z][A-Z0-9_]*=/) have[k] = 1 } }
+    /^#/ { block = block $0 "\n"; next }
+    /^[A-Z][A-Z0-9_]*=/ { k = $0; sub(/=.*/, "", k); if (!(k in have) && $0 ~ /=$/) { printf "\n%s%s=\n", block, k; n++ } block = ""; next }
+    { block = "" }
+  ' "$STAGE/.env.example")
+  [ -n "$added" ] || return 0
+  printf '%s' "$added" >> "$ENV_FILE"
+  say "Added new settings to $ENV_FILE (empty until you fill them in): $(printf '%s' "$added" | sed -n 's/^\([A-Z][A-Z0-9_]*\)=$/\1/p' | tr '\n' ' ')"
+}
+
 write_env_file() {
   if [ -f "$ENV_FILE" ]; then say "Keeping existing $ENV_FILE"; return; fi
   say "Creating $ENV_FILE"
@@ -217,6 +235,7 @@ healthy() {
 do_release() {
   say "Releasing"
   ensure_port_setting
+  add_missing_env_keys
   resolve_health_url
   [ -x "$APP/pocketbase" ] || die "PocketBase is not installed. Run:  server.sh setup ..."
   for d in dist pb_hooks pb_migrations; do [ -d "$STAGE/$d" ] || die "missing $STAGE/$d in the staged release"; done

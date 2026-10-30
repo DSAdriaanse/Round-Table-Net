@@ -21,6 +21,10 @@ export interface Net extends BaseRecord {
   closing: string;
   /** Sessions in a row a station can miss before it is made inactive. 3 by default; 0 = never. */
   max_absences: number;
+  /** Team chat with the net's Slack channel is on. Off by default. */
+  slack_enabled: boolean;
+  /** Slack channel ID (C0123ABCD), not the name. */
+  slack_channel: string;
 }
 
 export interface Station extends BaseRecord {
@@ -91,6 +95,17 @@ export interface Settings extends BaseRecord {
 }
 
 /** A live update from the server about one record. */
+/** One message in a session's Slack thread. "nco" = sent from this screen, "slack" = a reply from the channel. */
+export interface ChatMessage extends BaseRecord {
+  session_id: string;
+  net_id: string;
+  source: "nco" | "slack";
+  /** Who said it: "W1ABC (NCO)" or the person's Slack name. */
+  author: string;
+  text: string;
+  slack_ts: string;
+}
+
 export interface ChangeEvent<T> {
   type: "create" | "update" | "delete";
   id: string;

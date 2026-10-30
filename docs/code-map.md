@@ -12,6 +12,8 @@ Where things are and where to look when you want to change something.
 | `pb_hooks/normalize.pb.js` | Upper-cases and trims callsigns; refuses a duplicate check-in. |
 | `pb_hooks/public.pb.js` | The three no-sign-in routes. |
 | `pb_hooks/sessions.pb.js` | Close (including the roster update) and publish routes. |
+| `pb_hooks/slack.pb.js` | Team chat routes (status, test, send, Slack events) and the hook that starts a session's Slack thread. |
+| `pb_hooks/lib/slack.js` | Slack calls, text escaping and clean-up, thread start and close notice. |
 | `pb_hooks/lib/roster.js` | The roster update rules (absences, going inactive). |
 | `pb_hooks/lib/report.js` | The WordPress post and AI summary. |
 | `pb_hooks/lib/util.js` | Small shared helpers. |
@@ -23,6 +25,7 @@ Where things are and where to look when you want to change something.
 |---|---|
 | `api/` | The only door to the server: one typed file per feature, `types.ts` (matches the schema) and `records.ts` (small helpers). Screens import from `@/api` only. |
 | `features/<name>/` | One folder per area: `auth`, `nco` (net control), `checkin` (public), `roster`, `nets`, `history`, `announcements`, `dashboard`, `guide`, `settings`. |
+| `features/chat/` | The chat bubble (`ChatWidget.tsx`) and its live message list (`useChat.ts`); the counting rules are in `lib/chatState.ts`. |
 | `components/` | Layout and menu (`Layout.tsx`), net choice (`NetContext`, `NetSelectionGate`), shared pieces (`RichTextEditor`, `StationMap`), `ui/` (shadcn). |
 | `hooks/useNetData.ts` | Live roster and check-in caches fed by realtime. |
 | `utils/shortcodes.ts` | `[/TOPIC]` and `[/ANNOUNCEMENTS]` in net scripts. |

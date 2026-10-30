@@ -1,10 +1,11 @@
-// Fake third-party services for local testing: Anthropic and WordPress.
+// Fake third-party services for local testing: Anthropic, WordPress and Slack.
 // The tests never talk to the real ones, so no real posts or API calls are ever made.
 // Usage: node mock-services.mjs [port]   (default 9100)
 import http from "node:http";
 
 const port = Number(process.argv[2] || 9100);
 let calls = [];
+let slackTs = 1700000000;
 
 const readBody = (req) =>
   new Promise((resolve) => {
@@ -37,6 +38,14 @@ http
         return send(res, 200, [{ id: 7, slug: "regional-gmrs-net" }]);
       case "/wp/wp-json/wp/v2/posts":
         return send(res, 201, { id: 55, link: "https://wp.test/post-55" });
+      // Slack Web API. Two channel IDs behave like real failures so the error messages can be tested.
+      case "/slack/chat.postMessage":
+        if (body.channel === "CNOTIN0000") return send(res, 200, { ok: false, error: "not_in_channel" });
+        if (body.channel === "CMISSING00") return send(res, 200, { ok: false, error: "channel_not_found" });
+        slackTs += 1;
+        return send(res, 200, { ok: true, channel: body.channel, ts: `${slackTs}.000100` });
+      case "/slack/users.info":
+        return send(res, 200, { ok: true, user: { name: "todd", real_name: "Todd Realname", profile: { display_name: "Todd" } } });
       default:
         return send(res, 404, { error: "unknown mock route " + url.pathname });
     }
