@@ -105,8 +105,10 @@ function LayoutInner() {
 
   if (nets.length > 0 && !netConfirmed) return <NetSelectionGate />;
 
+  // The shell is exactly one screen tall: the sidebar stays put and only the main area
+  // scrolls, so the footer sits at the bottom edge instead of pushing the page past 100%.
   return (
-    <div className="flex min-h-screen bg-gray-950 text-white">
+    <div className="flex h-[100dvh] overflow-hidden bg-gray-950 text-white print:h-auto print:overflow-visible">
       {/* Phone: top bar with a menu button, and a slide-out menu */}
       <div className="md:hidden fixed top-0 inset-x-0 z-30 h-12 bg-gray-900 border-b border-gray-800 flex items-center gap-3 px-3">
         <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-gray-300 p-1"><Menu className="w-5 h-5" /></button>
@@ -143,7 +145,7 @@ function LayoutInner() {
         <SidebarContent collapsed={collapsed} />
       </aside>
 
-      <main className="flex-1 min-w-0 overflow-auto pt-12 md:pt-0">
+      <main className="relative print:static flex-1 min-w-0 overflow-y-auto flex flex-col pt-12 md:pt-0 print:overflow-visible">
         <Outlet />
         <CreditLine />
       </main>

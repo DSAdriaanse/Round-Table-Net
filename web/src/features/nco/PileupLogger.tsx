@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAllStations } from "@/hooks/useNetData";
-import { isInactive } from "@/lib/stationState";
+import { useAllStations, useIsInactive } from "@/hooks/useNetData";
 import { toast } from "@/lib/toast";
 import { finalStatus, makeRow, matchRow, rowsToLog, typeCallsign } from "./pileupRow";
 import type { Row } from "./pileupRow";
@@ -19,6 +18,7 @@ const NO_SUGGESTIONS = { index: null as number | null, list: [] as Station[] };
 // A callsign on the roster fills in its details; anything else is flagged as a guest.
 export default function PileupLogger({ session, netId, onUpdate }: { session: NetSession; netId: string; onUpdate: () => void }) {
   const queryClient = useQueryClient();
+  const isInactive = useIsInactive(netId);
   const [defaultStatus, setDefaultStatus] = useState<CheckInStatus>("short_time");
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: 5 }, () => makeRow("short_time")));
   const { data: stations = [] } = useAllStations(netId);

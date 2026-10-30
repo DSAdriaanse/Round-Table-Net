@@ -52,4 +52,24 @@ onBootstrap((e) => {
   s.rateLimits.enabled = true;
 
   $app.save(s);
+
+  // Safety net from before the roster was updated at close time: a session left "pending"
+  // by an older version (closed, roster not yet updated) is finished here, once, at start.
+  // Normally there is nothing to do. This must never stop the server from starting: on a
+  // brand-new database the tables do not exist yet (the migrations run later), so any
+  // failure just skips the sweep, and one failing session is logged and skipped.
+  try {
+    const roster = require(`${__hooks}/lib/roster.js`);
+    const pending = u.find($app, "net_sessions", "status = 'pending'", "closed_at");
+    for (let i = 0; i < pending.length; i++) {
+      try {
+        $app.runInTransaction((tx) => { roster.processSession(tx, tx.findRecordById("net_sessions", pending[i].id)); });
+        console.log("Finished roster update for pending session " + pending[i].id);
+      } catch (err) {
+        console.log("Could not finish pending session " + pending[i].id + ": " + err);
+      }
+    }
+  } catch (_) {
+    // no net_sessions table yet: nothing to finish
+  }
 });

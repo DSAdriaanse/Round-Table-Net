@@ -2,20 +2,23 @@
 //
 // Session life cycle, for net control operators only (all need a signed-in club account).
 //   POST /api/rt/session/close     body: { session_id, technical_difficulty }
-//   POST /api/rt/session/process   body: { session_id? }   update the roster now
 //   POST /api/rt/session/publish   body: { session_id }    post the report to WordPress
-// and a job every 15 minutes that updates the roster for every session left "pending".
 //
-// open  --close-->  pending  --job or "process"-->  closed
-//                   (technical_difficulty skips pending and goes straight to closed)
+// open  --close-->  closed
+// Closing also updates the roster (absences, 3-strike rule) in the same database
+// transaction, so a session is never half-closed. With technical difficulty the roster
+// update is skipped. "pending" is the old in-between state, from when a job ran every
+// 15 minutes; nothing creates it any more, and bootstrap.pb.js finishes any left over.
 
 // Close the session the operator is running. What it does, in order:
 //   1. drops the "not heard" rows (they were only a working list),
 //   2. adds guests who are not on the roster to it, flagged "needs review",
 //   3. records how many people attended,
-//   4. marks the session pending (or closed at once if there were technical difficulties).
+//   4. updates the roster for the net (skipped when there were technical difficulties),
+//   5. marks the session closed.
 routerAdd("POST", "/api/rt/session/close", (e) => {
   const u = require(`${__hooks}/lib/util.js`);
+  const roster = require(`${__hooks}/lib/roster.js`);
   u.requireNco(e);
   const body = e.requestInfo().body || {};
 
@@ -68,39 +71,19 @@ routerAdd("POST", "/api/rt/session/close", (e) => {
       s.set("status", "closed");
       s.set("technical_difficulty", true);
       s.set("roster_updated", true);
+      tx.save(s);
+      result = { status: "closed", checkin_count: attending.length, guests_added: guestsAdded, stations_updated: 0 };
     } else {
+      // Saved as pending only so processSession accepts it; it finishes the job (closed,
+      // roster_updated) inside this same transaction, so nobody ever sees "pending".
       s.set("status", "pending");
+      tx.save(s);
+      const r = roster.processSession(tx, tx.findRecordById("net_sessions", session.id));
+      result = { status: "closed", checkin_count: attending.length, guests_added: guestsAdded, stations_updated: r.stationsUpdated };
     }
-    tx.save(s);
-    result = { status: s.getString("status"), checkin_count: attending.length, guests_added: guestsAdded };
   });
 
   return e.json(200, result);
-});
-
-// Update the roster for a pending session right now instead of waiting for the job.
-// With no session_id it takes the oldest-first pending session, like the old admin button.
-routerAdd("POST", "/api/rt/session/process", (e) => {
-  const u = require(`${__hooks}/lib/util.js`);
-  const roster = require(`${__hooks}/lib/roster.js`);
-  u.requireNco(e);
-  const body = e.requestInfo().body || {};
-
-  let session = null;
-  if (body.session_id) {
-    try { session = $app.findRecordById("net_sessions", u.trunc(body.session_id, 40)); } catch (_) {}
-    if (!session) throw new NotFoundError("No such session.");
-    if (session.getString("status") !== "pending") throw new ApiError(409, "This session is not waiting to be processed.", {});
-  } else {
-    const pending = u.find($app, "net_sessions", "status = 'pending'", "-opened_at");
-    if (!pending.length) return e.json(200, { success: true, processed: 0, message: "No pending sessions" });
-    session = pending[0];
-  }
-
-  let r = null;
-  $app.runInTransaction((tx) => { r = roster.processSession(tx, tx.findRecordById("net_sessions", session.id)); });
-  if (!r) throw new ApiError(409, "This session was already processed.", {});
-  return e.json(200, { success: true, processed: 1, updatedStations: r.stationsUpdated, checkinCount: r.checkinCount });
 });
 
 routerAdd("POST", "/api/rt/session/publish", (e) => {
@@ -111,19 +94,4 @@ routerAdd("POST", "/api/rt/session/publish", (e) => {
   if (!body.session_id) throw new BadRequestError("session_id is required");
   const r = report.publish(u, u.trunc(body.session_id, 40));
   return e.json(r.status, r.body);
-});
-
-// Every 15 minutes: finish every pending session. One failing session is skipped
-// (and logged) so it cannot block the others.
-cronAdd("processPendingSessions", "*/15 * * * *", () => {
-  const u = require(`${__hooks}/lib/util.js`);
-  const roster = require(`${__hooks}/lib/roster.js`);
-  const pending = u.find($app, "net_sessions", "status = 'pending'", "-opened_at");
-  for (let i = 0; i < pending.length; i++) {
-    try {
-      $app.runInTransaction((tx) => { roster.processSession(tx, tx.findRecordById("net_sessions", pending[i].id)); });
-    } catch (err) {
-      console.log("processPendingSessions: session " + pending[i].id + " failed: " + err);
-    }
-  }
 });

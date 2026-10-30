@@ -35,7 +35,7 @@ export default function CloseSessionPanel({ session, net, checkIns, rosterStatio
   const doClose = async () => {
     const confirmMsg = technicalDifficulty
       ? "Close session with Technical Difficulty flag? Absences will NOT be updated. Guests will still be added to the roster."
-      : "Are you sure you want to close this session? It will be marked as pending processing.";
+      : "Are you sure you want to close this session? The roster will be updated now (absences counted).";
     if (!window.confirm(confirmMsg)) return;
     setLoading(true);
 
@@ -107,7 +107,7 @@ export default function CloseSessionPanel({ session, net, checkIns, rosterStatio
         <p className="text-sm text-gray-400">
           {technicalDifficulty
             ? "Session will close immediately (no absence tracking). Guests will still be added for review."
-            : "This will close the session and mark it for processing. The roster will be updated based on attendance."}
+            : "This will close the session and update the roster right away based on attendance."}
         </p>
 
         <Button id="close-session-button" onClick={doClose} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white w-full">

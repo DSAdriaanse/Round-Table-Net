@@ -19,6 +19,8 @@ export interface Net extends BaseRecord {
   /** Rich text (HTML) the operator reads aloud to open. May contain [/TOPIC] and [/ANNOUNCEMENTS]. */
   preamble: string;
   closing: string;
+  /** Sessions in a row a station can miss before it is made inactive. 3 by default; 0 = never. */
+  max_absences: number;
 }
 
 export interface Station extends BaseRecord {

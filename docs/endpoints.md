@@ -20,14 +20,13 @@ Behind Nginx the address comes from `X-Real-IP` (`TRUST_PROXY_HEADER`), so keep 
 
 | Route | Body | What it does |
 |---|---|---|
-| `POST /api/rt/session/close` | `{ session_id, technical_difficulty }` | Drops "not heard" rows, adds guests to the roster flagged for review, records the attendance count, sets the session `pending` (or `closed` at once with technical difficulty). `409` if it is not open. |
-| `POST /api/rt/session/process` | `{ session_id? }` | Updates the roster for one pending session now (no id: the oldest pending one). `409` if not pending. |
+| `POST /api/rt/session/close` | `{ session_id, technical_difficulty }` | Drops "not heard" rows, adds guests to the roster flagged for review, records the attendance count, updates the roster (skipped with technical difficulty) and sets the session `closed`, all in one transaction. Returns `{ status, checkin_count, guests_added, stations_updated }`. `409` if it is not open. |
 | `POST /api/rt/session/publish` | `{ session_id }` | Posts the report to WordPress (optional AI summary). `4xx/5xx` with the reason when WordPress or the settings are missing. |
 
-## Scheduled
+## Roster update
 
-`processPendingSessions` runs every 15 minutes and processes every `pending` session; one failure does not block the others.
-Roster rules: attended (checked in, short time, early) resets absences; a miss adds one; three in a row makes the station inactive;
+The close route updates the roster itself. There is no scheduled job. At server start, any session an older version left `pending` is finished once (`bootstrap.pb.js`).
+Roster rules: attended (checked in, short time, early) resets absences; a miss adds one; reaching the net's `max_absences` in a row makes the station inactive (set per net, default 3; `0` turns the rule off: absences are not counted and no one is dropped);
 `permanent_attendance` and `needs_review` stations are never dropped; technical difficulty skips the update.
 Times use the server's time zone (`TZ` in the env file, default in `.env.example` is `America/Phoenix`).
 

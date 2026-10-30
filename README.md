@@ -46,7 +46,7 @@ Open **Net Control**, enter your callsign (and a topic), **Open Session**. The t
 
 Stations check in themselves at `/check-in?net_id=<id>` (the old `/PublicCheckin?net_id=...` links keep working). The list on that page and on every operator's screen updates live.
 
-When a session is closed, the roster is updated within 15 minutes by a background job: attending stations reset their absences, missing ones gain one, three in a row makes a station inactive. Permanent-attendance stations and guests under review are never dropped, and a session closed with "Technical Difficulty" skips the update.
+When a session is closed, the roster is updated at that moment, in the same step: attending stations reset their absences, missing ones gain one, and a station that misses its net's limit in a row becomes inactive. The limit is set per net in Manage Nets: 3 by default, and 0 turns it off (no one is dropped and absences are not counted). Permanent-attendance stations and guests under review are never dropped, and a session closed with "Technical Difficulty" skips the update.
 
 ## Update
 

@@ -11,7 +11,7 @@ const steps: { icon: LucideIcon; title: string; color: string; body: string }[] 
   { icon: ListChecks, title: "4. Standard Roll Tab — Roll Call", color: "text-blue-400",
     body: "Use the Standard Roll for the formal roll call. The roster is sorted by state then callsign. The current station is highlighted — mark each station as Checked In, Short Time, Early, or Not Heard. Use the search box to filter by callsign, name, city, or state. Comments save when you click away from the field." },
   { icon: LogOut, title: "5. Close Session Tab — Closing & Roster Update", color: "text-red-400",
-    body: "When the net is done, read the closing statement aloud, then click Close Session. The system deletes Not Heard check-ins, adds guests to the roster for review, records the check-in count, and marks the session for processing. Roster attendance and consecutive absences are then updated automatically by a background job that runs every 15 minutes. If WordPress publishing on close is switched on, the session report is posted to WordPress right after closing; otherwise use the Publish button on the session report." },
+    body: "When the net is done, read the closing statement aloud, then click Close Session. The system deletes Not Heard check-ins, adds guests to the roster for review, records the check-in count, and updates the roster straight away: attending stations reset their absences, missing ones gain one. If WordPress publishing on close is switched on, the session report is posted to WordPress right after closing; otherwise use the Publish button on the session report." },
   { icon: ClipboardList, title: "6. Technical Difficulty", color: "text-orange-400",
     body: "If the repeater had issues (interference, dropout, etc.), check the Technical Difficulty box before closing. This skips absence tracking so no one falls off the roster due to RF problems. Guests are still added for review. The session is closed immediately without pending processing." },
   { icon: Globe, title: "7. Public Check-In & Other Tools", color: "text-cyan-400",
@@ -21,7 +21,7 @@ const steps: { icon: LucideIcon; title: string; color: string; body: string }[] 
 // The in-app help page. Keep it in step with the screens when behaviour changes.
 export default function Instructions() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-2">
           <BookOpen className="w-7 h-7 text-green-400" />

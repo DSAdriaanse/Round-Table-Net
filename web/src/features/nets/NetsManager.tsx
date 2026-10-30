@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/lib/toast";
 
 const DAYS: DayOfWeek[] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-type Form = Pick<Net, "name" | "day_of_week" | "time" | "frequency" | "preamble" | "closing">;
-const EMPTY: Form = { name: "", day_of_week: "Monday", time: "", frequency: "", preamble: "", closing: "" };
+type Form = Pick<Net, "name" | "day_of_week" | "time" | "frequency" | "preamble" | "closing"> & { max_absences: string };
+const EMPTY: Form = { name: "", day_of_week: "Monday", time: "", frequency: "", preamble: "", closing: "", max_absences: "3" };
 
 const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
@@ -31,16 +31,21 @@ export default function NetsManager() {
 
   const openNew = () => { setForm(EMPTY); setEditing(null); setOpen(true); };
   const openEdit = (n: Net) => {
-    setForm({ name: n.name, day_of_week: n.day_of_week, time: n.time, frequency: n.frequency, preamble: n.preamble, closing: n.closing });
+    setForm({ name: n.name, day_of_week: n.day_of_week, time: n.time, frequency: n.frequency, preamble: n.preamble, closing: n.closing, max_absences: String(n.max_absences ?? 3) });
     setEditing(n);
     setOpen(true);
   };
 
   const save = async () => {
     if (!form.name.trim() || !form.time.trim()) return toast.error("A net needs a name and a time.");
+    const maxAbsences = Number(form.max_absences);
+    if (form.max_absences.trim() === "" || !Number.isInteger(maxAbsences) || maxAbsences < 0 || maxAbsences > 52) {
+      return toast.error("Absences before a station goes inactive must be a whole number from 0 to 52 (0 = never).");
+    }
+    const data = { ...form, max_absences: maxAbsences };
     try {
-      if (editing) await updateNet(editing.id, form);
-      else await createNet(form);
+      if (editing) await updateNet(editing.id, data);
+      else await createNet(data);
       setOpen(false);
       await load();
       refreshNets();
@@ -61,7 +66,7 @@ export default function NetsManager() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8 flex-wrap">
           <Radio className="w-6 h-6 text-green-400" />
@@ -83,6 +88,7 @@ export default function NetsManager() {
               </CardHeader>
               <CardContent className="text-gray-400 text-sm space-y-1">
                 <p>{n.day_of_week}s at {n.time}{n.frequency ? ` · ${n.frequency}` : ""}</p>
+                <p className="text-xs text-gray-500">{n.max_absences === 0 ? "Stations are never dropped for absences" : `Inactive after ${n.max_absences ?? 3} absences in a row`}</p>
                 {n.preamble && <p className="text-xs text-gray-600 truncate">Preamble: {stripHtml(n.preamble).substring(0, 80)}...</p>}
               </CardContent>
             </Card>
@@ -108,6 +114,11 @@ export default function NetsManager() {
                 </Select>
               </div>
               <div><Label htmlFor="net-time">Time</Label><Input id="net-time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} placeholder="e.g. 7:30 PM" className="bg-gray-800 border-gray-600 text-white mt-1" /></div>
+            </div>
+            <div className="sm:max-w-xs">
+              <Label htmlFor="net-max-absences">Absences before a station goes inactive</Label>
+              <Input id="net-max-absences" type="number" inputMode="numeric" min={0} max={52} step={1} value={form.max_absences} onChange={(e) => setForm({ ...form, max_absences: e.target.value })} className="bg-gray-800 border-gray-600 text-white mt-1 w-24" />
+              <p className="text-xs text-gray-500 mt-1">Sessions in a row a station can miss before it is made inactive. 3 is the default. 0 turns this off: no one is dropped and absences are not counted.</p>
             </div>
             <div>
               <Label>Preamble</Label>

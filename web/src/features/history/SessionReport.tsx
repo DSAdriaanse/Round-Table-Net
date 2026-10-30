@@ -55,7 +55,7 @@ export default function SessionReport() {
     })();
   }, [sessionId]);
 
-  const center = "min-h-screen bg-gray-950 text-white flex items-center justify-center";
+  const center = "flex-1 bg-gray-950 text-white flex items-center justify-center";
   if (loading) return <div className={center}><p className="text-gray-400">Loading report...</p></div>;
   if (!session) return <div className={center}><p className="text-gray-400">Session not found.</p></div>;
 
@@ -76,7 +76,7 @@ export default function SessionReport() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-end gap-3 mb-4 flex-wrap">
           {result?.ok && (

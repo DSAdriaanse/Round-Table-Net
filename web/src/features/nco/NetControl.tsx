@@ -145,7 +145,7 @@ export default function NetControl() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Radio className="w-6 h-6 text-green-400" />

@@ -11,8 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useAllStations } from "@/hooks/useNetData";
-import { isInactive } from "@/lib/stationState";
+import { useAllStations, useIsInactive } from "@/hooks/useNetData";
 import { toast } from "@/lib/toast";
 import BulkImportDialog from "./BulkImportDialog";
 
@@ -20,6 +19,7 @@ type Form = Pick<Station, "callsign" | "name" | "city" | "state" | "permanent_at
 const EMPTY: Form = { callsign: "", name: "", city: "", state: "", permanent_attendance: false, active: true, needs_review: false };
 
 function StationBadges({ s, short }: { s: Station; short?: boolean }) {
+  const isInactive = useIsInactive(s.net_id);
   const inactive = isInactive(s);
   return (
     <div className="flex gap-1 flex-wrap">
@@ -35,6 +35,7 @@ export default function RosterManager() {
   const { selectedNet } = useNet();
   const queryClient = useQueryClient();
   const { data: all = [], isLoading } = useAllStations(selectedNet);
+  const isInactive = useIsInactive(selectedNet);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "guests">("all");
   const [open, setOpen] = useState(false);
@@ -166,7 +167,7 @@ export default function RosterManager() {
   const groups = filtered.reduce<Record<string, Station[]>>((acc, s) => { (acc[s.state || "—"] ||= []).push(s); return acc; }, {});
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Users className="w-6 h-6 text-green-400" />
