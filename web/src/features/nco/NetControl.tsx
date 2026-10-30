@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Pencil, Plus, Radio, X } from "lucide-react";
+import { Check, LogOut, Pencil, Plus, Radio, X } from "lucide-react";
 import { deleteSession, findOpenSession, openSession as createSession, updateSession } from "@/api";
 import type { NetSession } from "@/api";
 import { useNet } from "@/components/NetContext";
@@ -72,6 +72,8 @@ export default function NetControl() {
   const queryClient = useQueryClient();
   const [session, setSession] = useState<NetSession | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState("announcements");
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [ncoCallsign, setNcoCallsign] = useState("");
   const [topic, setTopic] = useState("");
 
@@ -101,6 +103,9 @@ export default function NetControl() {
   };
 
   // A slow safety-net refresh on top of the live updates, in case a connection dropped.
+  // Every new session starts on the Opening tab.
+  useEffect(() => { setTab("announcements"); }, [session?.id]);
+
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshCheckIns = () => {
     if (!session) return;
@@ -116,18 +121,27 @@ export default function NetControl() {
   };
 
   // Abandon a session: deletes it and its check-ins (the server cascades), leaving the
-  // roster and the history alone. For testing and training only.
-  const cancelSession = async () => {
-    if (!session) return;
-    if (!window.confirm("Cancel this session? All check-ins will be discarded and the session will NOT be recorded in the history log. Use this for testing and training only.")) return;
+  // roster and the history alone. For testing and training only. The confirmation (typing
+  // CANCEL when there are check-ins) is the dialog in the Close Session tab; this only
+  // does the delete and reports whether it worked.
+  const cancelSession = async (): Promise<boolean> => {
+    if (!session) return false;
     try {
       await deleteSession(session.id);
       queryClient.removeQueries({ queryKey: ["checkins", session.id] });
       setSession(null);
-      toast.success("Session cancelled — not recorded");
+      toast.success("Session discarded — not recorded");
+      return true;
     } catch (err) {
-      toast.error(`Failed to cancel session: ${(err as Error).message}`);
+      toast.error(`Failed to discard session: ${(err as Error).message}`);
+      return false;
     }
+  };
+
+  // The header's Close Session button: jump to the Close tab, where the confirmation lives.
+  const goToClose = () => {
+    setTab("close");
+    tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -161,8 +175,8 @@ export default function NetControl() {
               <TopicEditor session={session} onUpdated={setSession} />
               <span className="text-green-400 text-sm font-mono">Session Open — NCO: {session.nco_callsign}</span>
               <span className="bg-green-500/20 text-green-400 text-xs px-2 py-1 rounded-full animate-pulse">● LIVE</span>
-              <Button onClick={cancelSession} variant="ghost" size="sm" className="text-gray-500 hover:text-red-400 hover:bg-red-900/20 h-7 text-xs">
-                <X className="w-3.5 h-3.5 mr-1" />Cancel Session
+              <Button onClick={goToClose} size="sm" className="bg-green-600 hover:bg-green-700 text-white h-8">
+                <LogOut className="w-4 h-4 mr-1.5" />Close Session
               </Button>
             </div>
           )}
@@ -172,12 +186,12 @@ export default function NetControl() {
           <>
             <SessionDashboard checkIns={checkIns} selectedNet={selectedNet} />
 
-            <Tabs defaultValue="announcements" className="mt-6">
+            <Tabs value={tab} onValueChange={setTab} ref={tabsRef} className="mt-6 scroll-mt-4">
               <TabsList className="bg-gray-900 border border-gray-700 h-auto flex-wrap justify-start">
                 <TabsTrigger value="announcements" className="data-[state=active]:bg-purple-700 data-[state=active]:text-white text-gray-400">Opening</TabsTrigger>
                 <TabsTrigger value="pileup" className="data-[state=active]:bg-yellow-700 data-[state=active]:text-white text-gray-400">Pileup Logger</TabsTrigger>
                 <TabsTrigger value="roll" className="data-[state=active]:bg-green-700 data-[state=active]:text-white text-gray-400">Standard Roll</TabsTrigger>
-                <TabsTrigger value="close" className="data-[state=active]:bg-red-700 data-[state=active]:text-white text-gray-400">Close Session</TabsTrigger>
+                <TabsTrigger value="close" className="data-[state=active]:bg-green-700 data-[state=active]:text-white text-gray-400">Close Session</TabsTrigger>
               </TabsList>
 
               {/* forceMount keeps half-typed pileup rows when the operator switches tabs */}
@@ -191,7 +205,7 @@ export default function NetControl() {
                 <AnnouncementsPanel net={net} session={session} />
               </TabsContent>
               <TabsContent value="close">
-                <CloseSessionPanel session={session} net={net} checkIns={checkIns} rosterStations={rosterStations} onClose={handleSessionClosed} />
+                <CloseSessionPanel session={session} net={net} checkIns={checkIns} rosterStations={rosterStations} onClose={handleSessionClosed} onDiscard={cancelSession} />
               </TabsContent>
             </Tabs>
           </>
