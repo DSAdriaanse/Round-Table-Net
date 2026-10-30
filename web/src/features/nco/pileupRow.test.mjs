@@ -1,7 +1,7 @@
 // Run with:  npm test   (node --test with type stripping; no extra packages)
 import test from "node:test";
 import assert from "node:assert/strict";
-import { finalStatus, makeRow, matchRow, typeCallsign } from "./pileupRow.ts";
+import { finalStatus, makeRow, matchRow, rowsToLog, typeCallsign } from "./pileupRow.ts";
 
 const station = (callsign, extra = {}) => ({ id: `id-${callsign}`, callsign, name: `Op ${callsign}`, city: "Tucson", state: "AZ", ...extra });
 const roster = [station("WQAB123"), station("KAE1234")];
@@ -51,4 +51,20 @@ test("editing a matched callsign into a non-match clears the filled-in details a
 test("a name typed for a guest is kept while the callsign is edited", () => {
   const guest = { ...typeOut(makeRow("checked_in"), "N0ONE"), name: "Pat" };
   assert.equal(typeCallsign(guest, "N0ONES", roster).name, "Pat");
+});
+
+test("a callsign typed in two rows is saved once, and a comment is not lost", () => {
+  const a = typeOut(makeRow("checked_in"), "N0ONE");
+  const b = { ...typeOut(makeRow("early"), "n0one"), comment: "good signal" };
+  const c = typeOut(makeRow("checked_in"), "KAE1234");
+  const { rows, merged } = rowsToLog([a, makeRow("checked_in"), b, c]);
+  assert.equal(merged, 1);
+  assert.deepEqual(rows.map((r) => r.callsign), ["N0ONE", "KAE1234"]);
+  assert.equal(rows[0].comment, "good signal");
+  assert.equal(rows[0].status, "checked_in", "the first row's status wins");
+});
+
+test("empty rows and rows that are neither roster nor guest are left out", () => {
+  const partial = { ...makeRow("checked_in"), callsign: "W" }; // callsign typed but not classified
+  assert.deepEqual(rowsToLog([makeRow("checked_in"), partial]), { rows: [], merged: 0 });
 });

@@ -2,6 +2,8 @@
 import { inBatches, table } from "./records";
 import type { Station } from "./types";
 
+export { isDuplicateStation } from "../lib/duplicateStation";
+
 const stations = table<Station>("stations");
 
 /** Everyone on a net's roster, or only the active ones. */
