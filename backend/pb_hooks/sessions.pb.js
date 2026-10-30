@@ -83,6 +83,9 @@ routerAdd("POST", "/api/rt/session/close", (e) => {
     }
   });
 
+  // Tell the team's Slack thread the net is over (only when chat is on for this net; never blocks the close).
+  require(`${__hooks}/lib/slack.js`).notifyClosed($app, u, session.id, result.checkin_count);
+
   return e.json(200, result);
 });
 

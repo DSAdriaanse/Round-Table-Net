@@ -7,6 +7,7 @@
 //   announcements.ts announcements for the opening
 //   settings.ts      app settings
 //   public.ts        the no-sign-in routes for the public check-in page
+//   chat.ts          team chat through Slack (status and test message)
 //   auth.ts          PIN sign-in and sign-out
 //   pb               the raw PocketBase client (rarely needed)
 // To add something: put a named function in the matching file and export it here.
@@ -20,5 +21,6 @@ export * from "./checkIns";
 export * from "./announcements";
 export * from "./settings";
 export * from "./public";
+export * from "./chat";
 export { auth } from "./auth";
 export * from "./geocode";
