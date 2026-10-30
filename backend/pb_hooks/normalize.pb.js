@@ -7,6 +7,8 @@
 // 2. A net control operator cannot add a second check-in for the same callsign to a
 //    session; the screens update the existing one instead. Superusers (the importer)
 //    are not held to this, because the historical data contains repeats.
+// 3. A net created without max_absences gets the default of 3. (A number field cannot
+//    tell "not given" from 0, and 0 means "never drop anyone", so the default is set here.)
 
 onRecordValidate((e) => {
   const u = require(`${__hooks}/lib/util.js`);
@@ -25,3 +27,9 @@ onRecordCreateRequest((e) => {
   }
   e.next();
 }, "check_ins");
+
+onRecordCreateRequest((e) => {
+  const given = (e.requestInfo().body || {}).max_absences;
+  if (given === undefined || given === null || given === "") e.record.set("max_absences", 3);
+  e.next();
+}, "nets");
