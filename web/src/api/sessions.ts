@@ -28,15 +28,11 @@ export const openSession = (data: { net_id: string; net_name: string; nco_callsi
     opened_at: new Date().toISOString(),
   });
 
-export interface CloseResult { status: SessionStatus; checkin_count: number; guests_added: number }
+export interface CloseResult { status: SessionStatus; checkin_count: number; guests_added: number; stations_updated: number }
 
-/** Close the running session: guests join the roster for review and the roster update is queued. */
+/** Close the running session: guests join the roster for review and the roster is updated, all at once. */
 export const closeSession = (session_id: string, technical_difficulty: boolean) =>
   post<CloseResult>("/api/rt/session/close", { session_id, technical_difficulty });
-
-/** Update the roster for pending sessions now instead of waiting for the 15-minute job. */
-export const processPendingNow = () =>
-  post<{ success: boolean; processed: number; updatedStations?: number; checkinCount?: number; message?: string }>("/api/rt/session/process", {});
 
 /** Post the session report to WordPress. Rejects with the server's reason if it cannot. */
 export const publishReport = (session_id: string) =>

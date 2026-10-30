@@ -7,11 +7,11 @@ Where things are and where to look when you want to change something.
 | File | What it does |
 |---|---|
 | `pb_migrations/1760000000_schema.js` | The tables, fields, indexes and **access rules**. Change the schema with a new, later-dated migration file; never edit this one on a live database. |
-| `pb_hooks/bootstrap.pb.js` | App name and URL, trusted proxy header, rate limits. |
+| `pb_hooks/bootstrap.pb.js` | App name and URL, trusted proxy header, rate limits, and a one-time sweep of any session left `pending` by an older version. |
 | `pb_hooks/auth.pb.js` | PIN sign-in. |
 | `pb_hooks/normalize.pb.js` | Upper-cases and trims callsigns; refuses a duplicate check-in. |
 | `pb_hooks/public.pb.js` | The three no-sign-in routes. |
-| `pb_hooks/sessions.pb.js` | Close, process and publish routes, and the 15-minute job. |
+| `pb_hooks/sessions.pb.js` | Close (including the roster update) and publish routes. |
 | `pb_hooks/lib/roster.js` | The roster update rules (absences, going inactive). |
 | `pb_hooks/lib/report.js` | The WordPress post and AI summary. |
 | `pb_hooks/lib/util.js` | Small shared helpers. |
