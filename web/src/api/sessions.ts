@@ -4,6 +4,9 @@ import type { NetSession, SessionStatus } from "./types";
 
 const sessions = table<NetSession>("net_sessions");
 
+/** Live session changes from anyone (filter by net_id in the callback). */
+export const watchSessions = sessions.watch;
+
 export const getSession = (id: string) => sessions.get(id);
 export const updateSession = (id: string, data: Partial<NetSession>) => sessions.update(id, data);
 

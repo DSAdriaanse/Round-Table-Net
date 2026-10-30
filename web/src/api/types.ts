@@ -95,6 +95,17 @@ export interface Settings extends BaseRecord {
 }
 
 /** A live update from the server about one record. */
+/** One message in a session's Slack thread. "nco" = sent from this screen, "slack" = a reply from the channel. */
+export interface ChatMessage extends BaseRecord {
+  session_id: string;
+  net_id: string;
+  source: "nco" | "slack";
+  /** Who said it: "W1ABC (NCO)" or the person's Slack name. */
+  author: string;
+  text: string;
+  slack_ts: string;
+}
+
 export interface ChangeEvent<T> {
   type: "create" | "update" | "delete";
   id: string;

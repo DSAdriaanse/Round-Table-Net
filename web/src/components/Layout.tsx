@@ -7,6 +7,7 @@ import { NetProvider, useNet } from "@/components/NetContext";
 import NetSelectionGate from "@/components/NetSelectionGate";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/features/auth/AuthContext";
+import ChatWidget from "@/features/chat/ChatWidget";
 
 // The sidebar around every signed-in screen (a slide-out menu on a phone).
 // To add a screen to the menu, add it to navGroups and give it a route in App.tsx.
@@ -149,6 +150,7 @@ function LayoutInner() {
         <Outlet />
         <CreditLine />
       </main>
+      <ChatWidget />
     </div>
   );
 }
