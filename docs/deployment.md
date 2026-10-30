@@ -43,6 +43,8 @@ round-table-net-update            # pull, build, back up, release, health check,
 round-table-net-update --branch dev
 ```
 
+An update also adds any new empty setting from `.env.example` (such as the Slack keys) to `/etc/round-table-net/env`, with its comment, and never changes a value that is already there. Fill it in, then `systemctl restart round-table-net`.
+
 A rollback restores the previous code only. If a release changed the schema, restore a backup from `/var/backups/round-table-net`.
 
 ## Reverse proxy mode

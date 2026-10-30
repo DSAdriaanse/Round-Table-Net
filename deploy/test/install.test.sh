@@ -191,6 +191,23 @@ printf 'RT_PORT=8111\n' > "$TMP/senv"
 srv ensure_port_setting; check "ensure_port_setting leaves an existing port alone" "$(srv current_port)" "8111"
 check "health check follows RT_PORT" "$( ( export ENV_FILE="$TMP/senv" SERVER_SH_SOURCE_ONLY=1; source "$HERE/server.sh"; resolve_health_url; echo "$HEALTH_URL" ) )" "http://127.0.0.1:8111/api/health"
 check "HEALTH_URL override still wins" "$( ( export HEALTH_URL=http://h/x ENV_FILE="$TMP/senv" SERVER_SH_SOURCE_ONLY=1; source "$HERE/server.sh"; resolve_health_url; echo "$HEALTH_URL" ) )" "http://h/x"
+
+# An existing env file gets keys that a newer .env.example added, and nothing else changes.
+mkdir -p "$TMP/stage"
+printf '# the pin\nNCO_PIN=\n\n# Team chat\n# Setup: docs\nSLACK_BOT_TOKEN=\nSLACK_SIGNING_SECRET=\n#PIN_RATE_LIMIT=10\nTZ=America/Phoenix\nAPP_URL=https://x.example\n' > "$TMP/stage/.env.example"
+printf 'NCO_PIN=secret1234\nTZ=America/New_York\n' > "$TMP/senv"
+( export ENV_FILE="$TMP/senv" SERVER_SH_SOURCE_ONLY=1; source "$HERE/server.sh"; STAGE="$TMP/stage"; add_missing_env_keys >/dev/null )
+check "env update: Slack keys added, empty" "$(grep -c '^SLACK_BOT_TOKEN=$' "$TMP/senv"):$(grep -c '^SLACK_SIGNING_SECRET=$' "$TMP/senv")" "1:1"
+check "env update: their comment came with them" "$(grep -c '^# Team chat$' "$TMP/senv")" "1"
+check "env update: existing values untouched" "$(grep '^NCO_PIN=' "$TMP/senv"):$(grep '^TZ=' "$TMP/senv")" "NCO_PIN=secret1234:TZ=America/New_York"
+check "env update: keys with a default are left to the installer" "$(grep -c '^APP_URL=' "$TMP/senv")" "0"
+check "env update: commented-out keys are not added" "$(grep -c 'PIN_RATE_LIMIT' "$TMP/senv")" "0"
+cp "$TMP/senv" "$TMP/senv.after"
+( export ENV_FILE="$TMP/senv" SERVER_SH_SOURCE_ONLY=1; source "$HERE/server.sh"; STAGE="$TMP/stage"; add_missing_env_keys >/dev/null )
+check "env update: a second run changes nothing" "$(cmp -s "$TMP/senv" "$TMP/senv.after" && echo same || echo changed)" "same"
+printf 'NCO_PIN=x\n#SLACK_BOT_TOKEN=\nSLACK_SIGNING_SECRET=keep\n' > "$TMP/senv"
+( export ENV_FILE="$TMP/senv" SERVER_SH_SOURCE_ONLY=1; source "$HERE/server.sh"; STAGE="$TMP/stage"; add_missing_env_keys >/dev/null )
+check "env update: a key present, even commented out, is left alone" "$(grep -c 'SLACK_BOT_TOKEN' "$TMP/senv"):$(grep '^SLACK_SIGNING_SECRET=' "$TMP/senv")" "1:SLACK_SIGNING_SECRET=keep"
 ok "server valid_port rejects 80" "! srv valid_port 80"
 
 echo "--- server.sh: listen address, health check, firewall"
