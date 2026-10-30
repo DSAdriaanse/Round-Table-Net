@@ -74,7 +74,7 @@ export default function SessionHistory() {
   const net = nets.find((n) => n.id === selectedNet);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <History className="w-6 h-6 text-blue-400" />

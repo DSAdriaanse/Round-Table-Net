@@ -166,7 +166,7 @@ export default function RosterManager() {
   const groups = filtered.reduce<Record<string, Station[]>>((acc, s) => { (acc[s.state || "—"] ||= []).push(s); return acc; }, {});
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Users className="w-6 h-6 text-green-400" />

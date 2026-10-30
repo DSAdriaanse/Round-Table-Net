@@ -27,7 +27,7 @@ export default function NetDashboard() {
   const mapped = stations.filter((s) => s.lat && s.lng);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">Net Dashboard</h1>
         {!session && <p className="text-gray-500 text-sm mb-4">No session is open for this net. The map and roster show no check-in status.</p>}

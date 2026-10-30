@@ -31,7 +31,7 @@ export default function PrintNetSheet() {
 
   if (!selectedNet) {
     return (
-      <div className="min-h-screen bg-gray-950 text-white p-4">
+      <div className="bg-gray-950 text-white p-4">
         <div className="max-w-4xl mx-auto">
           <Card className="bg-gray-900 border-gray-700">
             <CardContent className="text-center py-16 text-gray-500">
@@ -48,7 +48,7 @@ export default function PrintNetSheet() {
   const boxes = ["☐", "☐", "☐"].map((b, i) => <td key={i} className={`${cell} text-center`}>{b}</td>);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6 print:hidden">
           <div className="flex items-center gap-3">
