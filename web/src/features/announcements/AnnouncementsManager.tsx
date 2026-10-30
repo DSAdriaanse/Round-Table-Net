@@ -45,7 +45,7 @@ export default function AnnouncementsManager() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4">
+    <div className="bg-gray-950 text-white p-4">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <Megaphone className="w-6 h-6 text-purple-400" />

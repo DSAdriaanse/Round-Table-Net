@@ -21,7 +21,7 @@ const steps: { icon: LucideIcon; title: string; color: string; body: string }[] 
 // The in-app help page. Keep it in step with the screens when behaviour changes.
 export default function Instructions() {
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-2">
           <BookOpen className="w-7 h-7 text-green-400" />

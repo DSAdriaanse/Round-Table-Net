@@ -101,7 +101,7 @@ export default function Settings() {
   const tilesProblem = form ? tileLayerFor(form).problem : "";
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <SettingsIcon className="w-6 h-6 text-gray-400" />

@@ -61,7 +61,7 @@ export default function NetsManager() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-4 sm:p-6">
+    <div className="bg-gray-950 text-white p-4 sm:p-6">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8 flex-wrap">
           <Radio className="w-6 h-6 text-green-400" />
