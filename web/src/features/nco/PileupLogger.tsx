@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAllStations } from "@/hooks/useNetData";
+import { isInactive } from "@/lib/stationState";
 import { toast } from "@/lib/toast";
 import { finalStatus, makeRow, matchRow, rowsToLog, typeCallsign } from "./pileupRow";
 import type { Row } from "./pileupRow";
@@ -100,6 +101,8 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
         queryClient.cancelQueries({ queryKey: ["stations", "all", netId] }),
       ]);
 
+      const reactivated = toLog.filter((r) => r.matched && r.station && isInactive(r.station)).length;
+
       // Roster side: bring matched stations back to full standing, add unknown callsigns as
       // guests waiting for review, and reactivate a known inactive callsign.
       await Promise.all(
@@ -149,7 +152,11 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
 
       setLogged((prev) => [...new Set([...prev, ...toLog.map((r) => r.callsign)])]);
       setRows(Array.from({ length: 5 }, () => makeRow(defaultStatus)));
-      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}${merged ? ` (${merged} repeated callsign${merged > 1 ? "s" : ""} merged)` : ""}`);
+      const notes = [
+        merged ? `${merged} repeated callsign${merged > 1 ? "s" : ""} merged` : "",
+        reactivated ? `${reactivated} inactive station${reactivated > 1 ? "s" : ""} made active again` : "",
+      ].filter(Boolean);
+      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}${notes.length ? ` (${notes.join("; ")})` : ""}`);
       setTimeout(onUpdate, 100);
     } catch (err) {
       toast.error(`Failed to log pileup: ${(err as Error).message || err}`);
@@ -183,7 +190,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
             <Zap className="w-3 h-3 mr-1" />Early
           </Button>
         </div>
-        <p className="text-gray-400 text-sm mt-1">Roster matches auto-fill. Non-roster callsigns are auto-flagged as guests.</p>
+        <p className="text-gray-400 text-sm mt-1">Roster matches auto-fill, including inactive stations (they are made active again when logged). Non-roster callsigns are auto-flagged as guests.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
@@ -216,10 +223,14 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
                           <button key={s.id} onMouseDown={() => applySuggestion(i, s)} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-left text-xs">
                             <span className="font-mono text-green-400 w-20 font-bold shrink-0">{s.callsign}</span>
                             <span className="text-white truncate">{s.name}</span>
+                            {isInactive(s) && <span className="text-amber-400 shrink-0">Inactive</span>}
                             <span className="text-gray-500 ml-auto shrink-0">{s.state}</span>
                           </button>
                         ))}
                       </div>
+                    )}
+                    {row.matched && row.station && isInactive(row.station) && (
+                      <p className="text-amber-400 text-xs mt-1">Inactive — will be made active when logged</p>
                     )}
                   </td>
                   <td className="px-2 py-1.5">
