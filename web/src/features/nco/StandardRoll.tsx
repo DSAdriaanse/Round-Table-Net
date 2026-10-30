@@ -1,27 +1,34 @@
 import { Fragment, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronRight, Clock, Radio, Search, VolumeX, Zap } from "lucide-react";
-import { createCheckIn, updateCheckIn } from "@/api";
+import { createCheckIn, updateCheckIn, updateStation } from "@/api";
 import type { CheckIn, CheckInStatus, Station } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/lib/toast";
-import { useActiveRoster } from "@/hooks/useNetData";
+import { useActiveRoster, useAllStations } from "@/hooks/useNetData";
+import { isInactive } from "@/lib/stationState";
 import type { NetSession } from "@/api";
 
 type Filter = "all" | "hide_early_short" | "guests" | "not_heard";
 
-// The Standard Roll tab: the active roster in order (by state, then callsign). The
+// The Standard Roll tab: the active roster in order (by state, then callsign); a switch adds the inactive stations too. The
 // operator taps a status for each station as it answers; a comment can be typed any time.
 export default function StandardRoll({ session, netId, checkIns, onUpdate }: { session: NetSession; netId: string; checkIns: CheckIn[]; onUpdate: () => void }) {
   const [comments, setComments] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Shared roster cache, also used by NetControl and SessionDashboard.
-  const { data: rawStations = [] } = useActiveRoster(netId);
+  // Shared roster caches, also used by NetControl, SessionDashboard and the Pileup Logger.
+  const { data: activeStations = [] } = useActiveRoster(netId);
+  const { data: allStations = [] } = useAllStations(netId);
+  const inactiveCount = allStations.filter(isInactive).length;
+  const rawStations = showInactive ? allStations : activeStations;
 
   const stations = useMemo(
     () =>
@@ -47,6 +54,16 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
     try {
       const existing = findRecord(station);
       const comment = comments[station.id] || "";
+      // An inactive station that answers is active again (the end-of-session update skips inactive stations,
+      // so it would otherwise stay inactive for good). Hearing nothing from it changes nothing.
+      if (isInactive(station) && status !== "not_heard") {
+        const saved = await updateStation(station.id, { active: true, consecutive_absences: 0 });
+        // Put the saved station straight into both roster caches, so the Inactive badge goes at once.
+        for (const scope of ["active", "all"]) {
+          queryClient.setQueryData<Station[]>(["stations", scope, netId], (prev = []) => (prev.some((x) => x.id === saved.id) ? prev.map((x) => (x.id === saved.id ? saved : x)) : [...prev, saved]));
+        }
+        toast.success(`${station.callsign} is active again.`);
+      }
       if (existing) {
         await updateCheckIn(existing.id, { status, comment: comment || existing.comment, station_id: station.id });
       } else {
@@ -98,7 +115,7 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
   });
 
   // The "current" station is the first in the filtered list with no record yet.
-  const currentStationId = filteredStations.find((s) => !hasRecord(s))?.id;
+  const currentStationId = filteredStations.find((s) => !hasRecord(s) && !isInactive(s))?.id;
 
   const filterButtons: { id: Filter; label: string; on: string; icon?: boolean }[] = [
     { id: "all", label: "All", on: "bg-blue-600" },
@@ -137,6 +154,16 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
                 {f.label}
               </Button>
             ))}
+            {(inactiveCount > 0 || showInactive) && (
+              <Button
+                size="sm"
+                onClick={() => setShowInactive((v) => !v)}
+                aria-pressed={showInactive}
+                className={`h-7 px-3 text-xs ${showInactive ? "bg-amber-600 hover:bg-amber-700 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"}`}
+              >
+                Include inactive ({inactiveCount})
+              </Button>
+            )}
           </div>
         </div>
         <div className="relative mt-3">
@@ -152,7 +179,7 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
       </CardHeader>
       <CardContent className="p-0">
         {filteredStations.length === 0 ? (
-          <p className="text-gray-500 text-center py-8 px-4">{stations.length === 0 ? "No active stations on roster for this net." : "No stations match this filter."}</p>
+          <p className="text-gray-500 text-center py-8 px-4">{stations.length === 0 ? (showInactive ? "No stations on the roster for this net." : "No active stations on roster for this net.") : "No stations match this filter."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -198,7 +225,7 @@ export default function StandardRoll({ session, netId, checkIns, onUpdate }: { s
                           {isCurrent ? <ChevronRight className="w-4 h-4 text-green-400 animate-pulse" /> : <span className="text-gray-600">{idx + 1}</span>}
                         </td>
                         <td className="px-4 py-2 font-mono font-bold text-green-400">{station.callsign}</td>
-                        <td className="px-4 py-2 text-white">{station.name}</td>
+                        <td className="px-4 py-2 text-white">{station.name}{isInactive(station) && <Badge className="ml-2 bg-amber-900 text-amber-300 text-xs">Inactive</Badge>}</td>
                         <td className="px-4 py-2 text-gray-400 hidden sm:table-cell">{station.state || "—"}</td>
                         <td className="px-4 py-2 text-gray-400 hidden md:table-cell">{station.city || "—"}</td>
                         <td className="px-4 py-2">
