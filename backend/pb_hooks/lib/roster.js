@@ -1,7 +1,7 @@
-// Roster bookkeeping for a finished session. Used by the 15-minute job and by the
-// manual "process now" route (sessions.pb.js).
+// Roster bookkeeping for a finished session. Called by the close route (sessions.pb.js)
+// inside its transaction, and by bootstrap.pb.js for any session an older version left pending.
 //
-// A session goes open -> pending (the net control operator closed it) -> closed (this file).
+// A session goes open -> pending -> closed (this file); the close route does both steps at once.
 // For every station on the active roster of the net:
 //   attended (checked_in, short_time or early)  -> absences back to 0
 //   did not attend                              -> one more absence; at MAX_ABSENCES the
@@ -14,8 +14,7 @@ const ATTENDED = ["checked_in", "short_time", "early"];
 
 // `app` is $app, or the transaction app inside runInTransaction, and `session` was read
 // through that same app. Returns { stationsUpdated, checkinCount }, or null when the
-// session is no longer pending: the 15-minute job and the manual button can overlap,
-// and a session must never be counted twice.
+// session is no longer pending, so a session can never be counted twice.
 function processSession(app, session) {
   if (session.getString("status") !== "pending") return null;
   const checkIns = app.findRecordsByFilter("check_ins", "session_id = {:s}", "", 0, 0, { s: session.id });
