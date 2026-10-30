@@ -21,6 +21,10 @@ export interface Net extends BaseRecord {
   closing: string;
   /** Sessions in a row a station can miss before it is made inactive. 3 by default; 0 = never. */
   max_absences: number;
+  /** Team chat with the net's Slack channel is on. Off by default. */
+  slack_enabled: boolean;
+  /** Slack channel ID (C0123ABCD), not the name. */
+  slack_channel: string;
 }
 
 export interface Station extends BaseRecord {

@@ -23,6 +23,20 @@ Behind Nginx the address comes from `X-Real-IP` (`TRUST_PROXY_HEADER`), so keep 
 | `POST /api/rt/session/close` | `{ session_id, technical_difficulty }` | Drops "not heard" rows, adds guests to the roster flagged for review, records the attendance count, updates the roster (skipped with technical difficulty) and sets the session `closed`, all in one transaction. Returns `{ status, checkin_count, guests_added, stations_updated }`. `409` if it is not open. |
 | `POST /api/rt/session/publish` | `{ session_id }` | Posts the report to WordPress (optional AI summary). `4xx/5xx` with the reason when WordPress or the settings are missing. |
 
+## Team chat (Slack)
+
+Per net, in Manage Nets: a switch and the Slack channel ID. The Slack app and its two secrets are shared by the server (see `slack-chat.md`).
+
+| Route | Body | What it does |
+|---|---|---|
+| `GET /api/rt/slack/status` | | `200 { configured }`: the server has `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET`. |
+| `POST /api/rt/slack/test` | `{ channel }` | Posts a test message. `400` with Slack's reason in plain words (app not in the channel, unknown channel, name instead of ID). |
+| `POST /api/rt/chat/send` | `{ session_id, text }` | Posts `*CALL (NCO):* text` in the session's Slack thread (starting it if needed) and stores the message. `409` if the session is closed or chat is off for the net; `502` with Slack's reason. |
+| `POST /api/rt/slack/events` | Slack's event JSON | **Slack only, no sign-in.** Refused unless `X-Slack-Signature` is valid and `X-Slack-Request-Timestamp` is under five minutes old. Stores people's replies in a session's thread; ignores everything else. |
+
+Opening a session on a chat-enabled net posts the thread's first message; closing it posts "Net closed". Messages live in `chat_messages` (operators read, only the server writes, deleted with their session).
+Limits: `/api/rt/chat/` 60 and `/api/rt/slack/` 600 requests a minute.
+
 ## Roster update
 
 The close route updates the roster itself. There is no scheduled job. At server start, any session an older version left `pending` is finished once (`bootstrap.pb.js`).
