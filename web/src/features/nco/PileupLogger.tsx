@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Check, CheckCircle2, Clock, UserPlus, VolumeX, Zap } from "lucide-react";
-import { createCheckIn, createStation, findStationsByCallsign, listCheckIns, updateCheckIn, updateStation } from "@/api";
+import { createCheckIn, createStation, findStationsByCallsign, isDuplicateStation, listCheckIns, updateCheckIn, updateStation } from "@/api";
 import type { CheckIn, CheckInStatus, NetSession, Station } from "@/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAllStations } from "@/hooks/useNetData";
+import { isInactive } from "@/lib/stationState";
 import { toast } from "@/lib/toast";
-import { finalStatus, makeRow, matchRow, typeCallsign } from "./pileupRow";
+import { finalStatus, makeRow, matchRow, rowsToLog, typeCallsign } from "./pileupRow";
 import type { Row } from "./pileupRow";
 
 const NO_SUGGESTIONS = { index: null as number | null, list: [] as Station[] };
@@ -64,8 +65,29 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
     setRows((prev) => prev.map((r) => (r.callsign.trim() ? r : { ...r, status })));
   };
 
+  // The roster entry for a callsign that was not on the roster when typed: reactivate it if it is there but
+  // inactive, else add it as a guest waiting for review. Another operator, or another browser tab, may have added
+  // the same callsign a moment ago; the server then refuses the second add, and the one that exists is used.
+  const guestStation = async (row: Row): Promise<Station> => {
+    const known = await findStationsByCallsign(netId, row.callsign);
+    const inactive = known.find((s) => !s.active);
+    if (inactive) return updateStation(inactive.id, { active: true, consecutive_absences: 0, needs_review: false });
+    if (known.length) return known[0];
+    try {
+      return await createStation({
+        callsign: row.callsign, name: row.name || row.callsign, city: row.location || "", state: row.state || "",
+        net_id: netId, active: true, consecutive_absences: 0, needs_review: true,
+      });
+    } catch (err) {
+      if (!isDuplicateStation(err)) throw err;
+      const now = await findStationsByCallsign(netId, row.callsign);
+      if (!now.length) throw err;
+      return now[0];
+    }
+  };
+
   const submit = async () => {
-    const toLog = rows.filter((r) => r.callsign.trim() && (r.matched || r.isGuest));
+    const { rows: toLog, merged } = rowsToLog(rows);
     if (!toLog.length) return;
     setSaving(true);
 
@@ -79,6 +101,8 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
         queryClient.cancelQueries({ queryKey: ["stations", "all", netId] }),
       ]);
 
+      const reactivated = toLog.filter((r) => r.matched && r.station && isInactive(r.station)).length;
+
       // Roster side: bring matched stations back to full standing, add unknown callsigns as
       // guests waiting for review, and reactivate a known inactive callsign.
       await Promise.all(
@@ -88,18 +112,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
               row.station = await updateStation(row.station.id, { active: true, consecutive_absences: 0 });
             }
           } else if (row.isGuest && !row.matched) {
-            const known = await findStationsByCallsign(netId, row.callsign);
-            const inactive = known.find((s) => !s.active);
-            if (inactive) {
-              row.station = await updateStation(inactive.id, { active: true, consecutive_absences: 0, needs_review: false });
-            } else if (!known.length) {
-              row.station = await createStation({
-                callsign: row.callsign, name: row.name || row.callsign, city: row.location || "", state: row.state || "",
-                net_id: netId, active: true, consecutive_absences: 0, needs_review: true,
-              });
-            } else {
-              row.station = known[0];
-            }
+            row.station = await guestStation(row);
           }
         }),
       );
@@ -139,7 +152,11 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
 
       setLogged((prev) => [...new Set([...prev, ...toLog.map((r) => r.callsign)])]);
       setRows(Array.from({ length: 5 }, () => makeRow(defaultStatus)));
-      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}`);
+      const notes = [
+        merged ? `${merged} repeated callsign${merged > 1 ? "s" : ""} merged` : "",
+        reactivated ? `${reactivated} inactive station${reactivated > 1 ? "s" : ""} made active again` : "",
+      ].filter(Boolean);
+      toast.success(`Logged ${toLog.length} check-in${toLog.length > 1 ? "s" : ""}${notes.length ? ` (${notes.join("; ")})` : ""}`);
       setTimeout(onUpdate, 100);
     } catch (err) {
       toast.error(`Failed to log pileup: ${(err as Error).message || err}`);
@@ -148,7 +165,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
     }
   };
 
-  const loggable = rows.filter((r) => r.callsign.trim() && (r.matched || r.isGuest)).length;
+  const loggable = rowsToLog(rows).rows.length;
 
   const statusButtons: { status: CheckInStatus; icon: typeof Clock; title: string; on: string; hover: string }[] = [
     { status: "checked_in", icon: CheckCircle2, title: "Checked In", on: "bg-green-600", hover: "hover:bg-green-700" },
@@ -173,7 +190,7 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
             <Zap className="w-3 h-3 mr-1" />Early
           </Button>
         </div>
-        <p className="text-gray-400 text-sm mt-1">Roster matches auto-fill. Non-roster callsigns are auto-flagged as guests.</p>
+        <p className="text-gray-400 text-sm mt-1">Roster matches auto-fill, including inactive stations (they are made active again when logged). Non-roster callsigns are auto-flagged as guests.</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
@@ -206,10 +223,14 @@ export default function PileupLogger({ session, netId, onUpdate }: { session: Ne
                           <button key={s.id} onMouseDown={() => applySuggestion(i, s)} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-gray-700 text-left text-xs">
                             <span className="font-mono text-green-400 w-20 font-bold shrink-0">{s.callsign}</span>
                             <span className="text-white truncate">{s.name}</span>
+                            {isInactive(s) && <span className="text-amber-400 shrink-0">Inactive</span>}
                             <span className="text-gray-500 ml-auto shrink-0">{s.state}</span>
                           </button>
                         ))}
                       </div>
+                    )}
+                    {row.matched && row.station && isInactive(row.station) && (
+                      <p className="text-amber-400 text-xs mt-1">Inactive — will be made active when logged</p>
                     )}
                   </td>
                   <td className="px-2 py-1.5">

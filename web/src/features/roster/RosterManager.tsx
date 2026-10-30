@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, ClipboardPaste, MapPin, Pencil, Plus, Search, Trash2, Users, XSquare } from "lucide-react";
-import { GEOCODE_DELAY_MS, createStation, deleteStation, deleteStations, geocode, updateStation } from "@/api";
+import { GEOCODE_DELAY_MS, createStation, deleteStation, deleteStations, geocode, isDuplicateStation, updateStation } from "@/api";
 import type { Station } from "@/api";
 import { useNet } from "@/components/NetContext";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useAllStations } from "@/hooks/useNetData";
+import { isInactive } from "@/lib/stationState";
 import { toast } from "@/lib/toast";
 import BulkImportDialog from "./BulkImportDialog";
 
 type Form = Pick<Station, "callsign" | "name" | "city" | "state" | "permanent_attendance" | "active" | "needs_review">;
 const EMPTY: Form = { callsign: "", name: "", city: "", state: "", permanent_attendance: false, active: true, needs_review: false };
-const MAX_ABSENCES = 3;
 
 function StationBadges({ s, short }: { s: Station; short?: boolean }) {
-  const inactive = !s.active || s.consecutive_absences >= MAX_ABSENCES;
+  const inactive = isInactive(s);
   return (
     <div className="flex gap-1 flex-wrap">
       {s.permanent_attendance && <Badge className="bg-blue-800 text-blue-200 text-xs">{short ? "Perm" : "Permanent"}</Badge>}
@@ -96,6 +96,25 @@ export default function RosterManager() {
   const save = async () => {
     const callsign = form.callsign.trim().toUpperCase();
     if (!callsign || !form.name.trim()) return toast.error("A station needs a callsign and a name.");
+    // A callsign that is already on this net's roster cannot be added again. If it is there but inactive,
+    // offer to bring it back instead of failing.
+    const already = !editing ? all.find((s) => s.callsign.toUpperCase() === callsign) : undefined;
+    if (already) {
+      if (!isInactive(already)) return toast.error(`${callsign} is already on this net's roster.`);
+      if (!window.confirm(`${callsign} (${already.name}) is already on this net's roster but is inactive. Make them active again?`)) return;
+      setBusy(true);
+      try {
+        await updateStation(already.id, { active: true, consecutive_absences: 0 });
+        toast.success(`${callsign} is active again.`);
+        setOpen(false);
+        reload();
+      } catch (e) {
+        toast.error(`Could not reactivate ${callsign}: ${(e as Error).message}`);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     setBusy(true);
     try {
       const data: Partial<Station> = { ...form, callsign, name: form.name.trim() };
@@ -111,7 +130,7 @@ export default function RosterManager() {
       setOpen(false);
       reload();
     } catch (e) {
-      toast.error(`Could not save the station: ${(e as Error).message}`);
+      toast.error(isDuplicateStation(e) ? `${callsign} is already on this net's roster.` : `Could not save the station: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -130,7 +149,7 @@ export default function RosterManager() {
   );
 
   const rowFor = (s: Station, flat: boolean) => {
-    const dim = !s.active || s.consecutive_absences >= MAX_ABSENCES ? "opacity-50" : "";
+    const dim = isInactive(s) ? "opacity-50" : "";
     return (
       <tr key={s.id} className={`border-b border-gray-800 last:border-0 hover:bg-gray-800/40 ${dim}`}>
         {bulkMode && <td className="px-3 sm:px-4 py-2.5 w-10"><Checkbox aria-label={`Select ${s.callsign}`} checked={selected.has(s.id)} onCheckedChange={() => toggle(s.id)} /></td>}

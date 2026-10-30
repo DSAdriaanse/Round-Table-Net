@@ -39,3 +39,22 @@ export function typeCallsign(row: Row, value: string, stations: Station[]): Row 
 
 /** The status a row is saved with: guests are "guest", roster stations keep their chosen status. */
 export const finalStatus = (row: Row): CheckInStatus => (row.isGuest ? "guest" : row.status);
+
+/**
+ * Rows ready to save: only rows with a callsign that is on the roster or flagged as a guest, and one row per
+ * callsign. A callsign typed twice in one pileup would otherwise add the station twice (the second add is
+ * refused) and log two check-ins. The first row wins; a comment missing from it is taken from a later one.
+ */
+export function rowsToLog(rows: Row[]): { rows: Row[]; merged: number } {
+  const byCallsign = new Map<string, Row>();
+  let merged = 0;
+  for (const row of rows) {
+    const key = row.callsign.trim().toUpperCase();
+    if (!key || !(row.matched || row.isGuest)) continue;
+    const first = byCallsign.get(key);
+    if (!first) { byCallsign.set(key, { ...row, callsign: key }); continue; }
+    merged++;
+    if (!first.comment && row.comment) first.comment = row.comment;
+  }
+  return { rows: [...byCallsign.values()], merged };
+}

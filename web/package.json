@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --quiet",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/features/nco/pileupRow.test.mjs src/lib/tileConfig.test.mjs src/lib/logo.test.mjs src/lib/clock.test.mjs"
+    "test": "node --test src/features/nco/pileupRow.test.mjs src/lib/tileConfig.test.mjs src/lib/logo.test.mjs src/lib/clock.test.mjs src/lib/stationState.test.mjs src/lib/duplicateStation.test.mjs src/lib/cancelSession.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.6",
