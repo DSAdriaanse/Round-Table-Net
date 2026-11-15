@@ -21,7 +21,7 @@ Behind Nginx the address comes from `X-Real-IP` (`TRUST_PROXY_HEADER`), so keep 
 | Route | Body | What it does |
 |---|---|---|
 | `POST /api/rt/session/close` | `{ session_id, technical_difficulty }` | Drops "not heard" rows, adds guests to the roster flagged for review, records the attendance count, updates the roster (skipped with technical difficulty) and sets the session `closed`, all in one transaction. Returns `{ status, checkin_count, guests_added, stations_updated }`. `409` if it is not open. |
-| `POST /api/rt/session/publish` | `{ session_id }` | Posts the report to WordPress (optional AI summary). `4xx/5xx` with the reason when WordPress or the settings are missing. |
+| `POST /api/rt/session/publish` | `{ session_id }` | Posts the report to WordPress (optional AI summary, written from the topic, notes, all check-ins and comments, and the active announcements). `4xx/5xx` with the reason when WordPress or the settings are missing. |
 
 ## Team chat (Slack)
 
