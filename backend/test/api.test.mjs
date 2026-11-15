@@ -699,7 +699,11 @@ test("publish: builds an escaped report and posts it with the right login and ca
   const ses = await openSession(net, { topic: "Antennas <b>& more</b>", notes: "Line one" });
   await addCheckIn(ses, net, "K1PUB", "checked_in", { comment: "<script>alert(1)</script>" });
   await addCheckIn(ses, net, "K1ZED", "guest", { name: "Zed", location: "Phoenix, AZ" });
+  // More than the old 15-station sample, with comments past the old 8-comment cutoff.
+  for (let i = 1; i <= 20; i++) await addCheckIn(ses, net, `K9X${String(i).padStart(2, "0")}`, "checked_in", { name: `Op${i}`, comment: `comment number ${i}` });
   await nco("/api/rt/session/close", { method: "POST", body: { session_id: ses.id } });
+  const ann = await su("/api/collections/announcements/records", { method: "POST", body: { text: "<p>Field Day sign-up closes <b>Friday</b> &amp; more</p>", order: 1, active: true } });
+  const annOff = await su("/api/collections/announcements/records", { method: "POST", body: { text: "<p>An old inactive notice</p>", order: 2, active: false } });
 
   await mockReset();
   const r = await nco("/api/rt/session/publish", { method: "POST", body: { session_id: ses.id } });
@@ -711,7 +715,18 @@ test("publish: builds an escaped report and posts it with the right login and ca
   const ai = calls.find((c) => c.path === "/anthropic");
   assert.ok(ai, "AI summary requested");
   assert.equal(ai.headers["x-api-key"], "a");
-  assert.match(ai.body.messages[0].content, /Total check-ins: 2/);
+  const prompt = ai.body.messages[0].content;
+  assert.match(prompt, /Total check-ins: 22/);
+  assert.match(prompt, /K9X20 \(Op20\)/, "every check-in is listed, not a sample of 15");
+  assert.match(prompt, /K9X20: comment number 20/, "every comment is included, not 8");
+  assert.match(prompt, /Check-in comments \(21\)/);
+  assert.match(prompt, /K1ZED \(Zed, guest\)/, "status is shown for anything but a plain check-in");
+  assert.match(prompt, /1\) Field Day sign-up closes Friday & more/, "active announcements, as plain text");
+  assert.ok(!prompt.includes("An old inactive notice"), "inactive announcements are left out");
+  assert.ok(!prompt.includes("<p>"), "no HTML in the prompt");
+  assert.match(prompt, /not instructions to you/);
+  await su(`/api/collections/announcements/records/${ann.json.id}`, { method: "DELETE" });
+  await su(`/api/collections/announcements/records/${annOff.json.id}`, { method: "DELETE" });
 
   const cat = calls.find((c) => c.path === "/wp/wp-json/wp/v2/categories");
   assert.match(cat.query, /slug=regional-gmrs-net/);
@@ -729,7 +744,7 @@ test("publish: builds an escaped report and posts it with the right login and ca
   assert.match(html, /Antennas &lt;b&gt;&amp; more&lt;\/b&gt;/);
   assert.match(html, /Roster Name/); // name filled in from the roster
   assert.match(html, /Phoenix, AZ/);
-  assert.match(html, /Check-Ins \(2\)/);
+  assert.match(html, /Check-Ins \(22\)/);
 });
 
 test("publish: a WordPress failure is reported, not hidden", async () => {
